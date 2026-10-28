@@ -8,7 +8,16 @@ The [release build](https://github.com/NekoMatsu1/Logbook_System/actions/runs/40
 
 The local MSYS2 environment still showed the previously recorded Tk file-loading error in one GUI test (74 passed, 1 failed). The standard Windows runner passed that same suite. Use the bundled Windows release or standard CPython for a new PC.
 
-**Verdict: ready for controlled simulation testing; not approved for unattended production deployment. No cloud server has been deployed.**
+**Verdict: cloud server and first Windows PC login are working in simulation. Ready for controlled testing; not approved for unattended production deployment.**
+
+## Hosted check (2026-10-28)
+
+- PythonAnywhere is serving the HTTPS administrator dashboard. The owner completed account setup, virtualenv selection, Force HTTPS, WSGI configuration, and reload.
+- The first provisioned Windows client connected to the hosted API. The dashboard showed that PC in use with one active central session after registration and confirmed login.
+- No PC credentials, owner IP address, student identity, or session database are included in this repository or the public downloads.
+- A second PC on another internet connection, simulated inactivity completion, live power actions, outside-network administrator rejection, and backup restoration remain pending. The owner will test later. Keep simulation enabled.
+
+The assessment below includes earlier development results. Statements about unavailable hosting refer to the earlier audit, before the hosted check above.
 
 ## Earlier local checks (2026-10-24)
 

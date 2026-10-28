@@ -4,7 +4,7 @@ A logbook for a computer lab. Students register their name and ID, then use thei
 
 ## Download
 
-**[Download for Windows](https://github.com/NekoMatsu1/Logbook_System/releases/download/v0.1.0-test.1/Logbook-Windows-x64.zip)** | [All releases](https://github.com/NekoMatsu1/Logbook_System/releases)
+**[Download for Windows](https://github.com/NekoMatsu1/Logbook_System/releases/download/v0.1.1-test.1/Logbook-Windows-x64.zip)** | [All releases](https://github.com/NekoMatsu1/Logbook_System/releases)
 
 The download is **Logbook-Windows-x64.zip**. It is a test version.
 
@@ -15,7 +15,9 @@ The download is **Logbook-Windows-x64.zip**. It is a test version.
 
 You do not need to install Python for the Windows download. Keep the `_internal` folder beside the program. The **Code > Download ZIP** button gives you the source code, not the app.
 
-The app needs a running central server. It cannot sign students in without a connection. PCs can connect from different locations over the internet when the server is deployed with remote clients enabled; they do not need to share a LAN. The administrator dashboard remains restricted to the designated admin computer. See [internet deployment](deploy/README.md) and [how to set up another PC](DOWNLOAD.md).
+The central server is now running on PythonAnywhere. The first Windows PC has registered and started a session through it. PCs can connect from different internet connections; they do not need to share a LAN. The dashboard is restricted to the admin network's public IP. See [how to set up another PC](DOWNLOAD.md). Each new PC must get its own private setup file from the admin.
+
+The server needs monthly renewal in PythonAnywhere's Web tab. It can keep running when the development laptop is off. A test on a second PC and a different internet connection is still pending.
 
 ## What it does
 
@@ -29,7 +31,7 @@ The app needs a running central server. It cannot sign students in without a con
 
 This is a **test release**. New PC setup starts in simulation mode, so it does not sign out or shut down the PC.
 
-Before using it in a real lab, test it on the actual PCs. Server hosting, backups, access rules, and real power actions need to be checked. The shutdown warning on the OS sign-in screen is not complete.
+Before using it in a real lab, test it on the actual PCs. Backup restore, access from a second network, and real power actions still need checks. The shutdown warning on the OS sign-in screen is not complete.
 
 ## Guides
 

@@ -34,12 +34,15 @@ jobs:
         run: python scripts/build_windows.py
       - name: Package server source
         run: python deploy/package.py
+      - name: Package PythonAnywhere server
+        run: python -m deploy.package_pythonanywhere
       - uses: actions/upload-artifact@v4
         with:
           name: Logbook-downloads
           path: |
             dist/Logbook-Windows-x64.zip
             dist/Logbook-Windows-x64.zip.sha256
+            dist/pythonanywhere-server.zip
             .tools/logbook-deploy.zip
           if-no-files-found: error
           include-hidden-files: true

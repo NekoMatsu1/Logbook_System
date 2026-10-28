@@ -16,7 +16,26 @@ For PCs at different locations, deploy the central service on an internet-reacha
 
 ## Administrator: provision another PC
 
-On the **central server**, using its existing Python environment and database:
+For the current PythonAnywhere server, open its **Bash console** and run:
+
+```bash
+cd ~/lab-logbook
+mkdir -p ~/private-client-configs
+chmod 700 ~/private-client-configs
+~/.virtualenvs/lab-logbook/bin/python -m server provision \
+  --database ~/.local/share/lab-logbook/logbook.sqlite \
+  --computer LAB-PC-02 \
+  --output ~/private-client-configs/LAB-PC-02.json \
+  --server-url https://nekomatsui.pythonanywhere.com
+```
+
+Use `LAB-PC-03`, `LAB-PC-04`, and so on for more PCs. Download that PC's JSON through the signed-in PythonAnywhere **Files** tab, in the `private-client-configs` folder. On the target PC, extract the Windows app and put the JSON in `Logbook/config/client.json`. Then open `Logbook.exe`. The admin must do the provisioning; public downloads contain no usable PC credentials.
+
+Do not copy `LAB-PC-01`'s config to another PC. Its Windows credential is tied to the first PC that opened it. Keep the original downloads private too.
+
+### Other server installations
+
+On another **central server**, using its existing Python environment and database:
 
 ```powershell
 python -m server provision --computer LAB-PC-02 --output config/LAB-PC-02.json --server-url https://YOUR-SERVER-HOSTNAME
