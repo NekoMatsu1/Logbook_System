@@ -33,6 +33,7 @@ Before using it in a real lab, test it on the actual PCs. Server hosting, backup
 
 ## Guides
 
+- [Free internet server without a card](deploy/PYTHONANYWHERE.md)
 - [Start with Oracle Cloud](deploy/ORACLE.md)
 - [Download and PC setup](DOWNLOAD.md)
 - [Full setup guide](SETUP.md)

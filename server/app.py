@@ -55,7 +55,7 @@ def create_app(config=None):
             if app.config['ADMIN_DIRECT_ONLY']:
                 if not app.config['ADMIN_ADDRESSES'] or any(not ipaddress.ip_address(address).is_loopback for address in app.config['ADMIN_ADDRESSES']):
                     raise RuntimeError('Direct-only administrator addresses must be loopback only')
-            elif not trusted_proxy or not app.config['ADMIN_ADDRESSES']:
+            elif (not trusted_proxy and not app.config.get('HOSTED_IP_VERIFIED')) or not app.config['ADMIN_ADDRESSES']:
                 raise RuntimeError('Remote administrator access requires a trusted proxy and an explicit IP allowlist')
     lab_networks = tuple(ipaddress.ip_network(value) for value in app.config['LAB_NETWORKS'])
     if trusted_proxy:

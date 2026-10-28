@@ -11,15 +11,26 @@ import secrets
 def main():
     parser=argparse.ArgumentParser()
     parser.add_argument('--username',required=True)
-    parser.add_argument('--admin-email',required=True)
-    parser.add_argument('--lab-network',action='append',required=True)
+    admin=parser.add_mutually_exclusive_group(required=True)
+    admin.add_argument('--admin-email')
+    admin.add_argument('--admin-ip')
+    clients=parser.add_mutually_exclusive_group(required=True)
+    clients.add_argument('--lab-network',action='append')
+    clients.add_argument('--remote-clients',action='store_true')
     parser.add_argument('--force-https-confirmed',action='store_true')
     args=parser.parse_args()
     if not re.fullmatch(r'[A-Za-z0-9_-]{1,64}',args.username):
         parser.error('Invalid hosting username')
-    if not re.fullmatch(r'[^\s@]+@[^\s@]+\.[^\s@]+',args.admin_email):
+    if args.admin_email and not re.fullmatch(r'[^\s@]+@[^\s@]+\.[^\s@]+',args.admin_email):
         parser.error('Invalid administrator email')
-    networks=[str(ipaddress.ip_network(value)) for value in args.lab_network]
+    try:
+        networks=[str(ipaddress.ip_network(value)) for value in args.lab_network or []]
+        if args.admin_ip:
+            address=ipaddress.ip_address(args.admin_ip)
+            if address.version != 4 or not address.is_global:
+                raise ValueError('Use your administrator network public IPv4 address')
+    except ValueError as error:
+        parser.error(str(error))
     home=Path.home()
     if home != Path('/home')/args.username:
         parser.error('Run this command in the actual PythonAnywhere account console')
@@ -31,18 +42,22 @@ def main():
     destination=folder/'server.json'
     if destination.exists():
         parser.error('Private configuration already exists; edit it deliberately instead of replacing identity/secrets')
-    client_id=input('Google Web OAuth client ID: ').strip()
-    client_secret=getpass.getpass('Google Web OAuth client secret (hidden): ').strip()
-    if not client_id.endswith('.apps.googleusercontent.com') or not client_secret:
-        parser.error('Google Web OAuth client credentials are required')
+    client_id=client_secret=''
+    if args.admin_email:
+        client_id=input('Google Web OAuth client ID: ').strip()
+        client_secret=getpass.getpass('Google Web OAuth client secret (hidden): ').strip()
+        if not client_id.endswith('.apps.googleusercontent.com') or not client_secret:
+            parser.error('Google Web OAuth client credentials are required')
     hostname=args.username+'.pythonanywhere.com'
     database=home/'.local'/'share'/'lab-logbook'/'logbook.sqlite'
     database.parent.mkdir(parents=True,exist_ok=True,mode=0o700)
     configuration=dict(DATABASE=str(database),SECRET_KEY=secrets.token_hex(48),PRODUCTION=True,
-                       ADMIN_AUTH_MODE='google',ADMIN_DIRECT_ONLY=False,ADMIN_ADDRESSES=[],
-                       ADMIN_EMAIL=args.admin_email.lower(),GOOGLE_CLIENT_ID=client_id,GOOGLE_CLIENT_SECRET=client_secret,
+                       ADMIN_AUTH_MODE='google' if args.admin_email else 'local',ADMIN_DIRECT_ONLY=False,
+                       ADMIN_ADDRESSES=[str(address)] if args.admin_ip else [],
+                       ADMIN_EMAIL=(args.admin_email or '').lower(),GOOGLE_CLIENT_ID=client_id,GOOGLE_CLIENT_SECRET=client_secret,
                        GOOGLE_REDIRECT_URI=f'https://{hostname}/auth/callback',TRUSTED_HOSTS=[hostname],
-                       SESSION_COOKIE_SECURE=True,LAB_NETWORKS=networks,PLATFORM_HTTPS_ENFORCED=True)
+                       SESSION_COOKIE_SECURE=True,LAB_NETWORKS=networks,ALLOW_REMOTE_CLIENTS=args.remote_clients,
+                       PLATFORM_HTTPS_ENFORCED=True)
     descriptor=os.open(destination,os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600)
     with os.fdopen(descriptor,'w',encoding='utf-8') as output:
         json.dump(configuration,output,indent=2)
