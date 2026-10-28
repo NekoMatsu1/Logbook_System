@@ -1,5 +1,7 @@
 # Full setup guide
 
+The portable client now has manual **Log out** in its session window. Closing the window minimizes it to the taskbar. Older references below to having no End Session control describe the earlier version; see [current logout instructions](DOWNLOAD.md#student-logout).
+
 Latest implementation: owner-only Google administrator sign-in from any network, lab-source-network checks plus revocable machine credentials for students, Windows machine-bound credential protection, and a supervised native shell/session gate are implemented. See [KIOSK-SETUP.md](KIOSK-SETUP.md) for deliberate lab-account installation and [deploy/PYTHONANYWHERE.md](deploy/PYTHONANYWHERE.md) for free hosting. Those accounts/OS policies are not configured automatically: a normal portable test window still does not enforce kiosk access, and no cloud host has been created. The local/LAN prototype instructions below remain available.
 
 For remote hosting that continues when this laptop is off, see [deploy/README.md](deploy/README.md). It includes the free-hosting constraints, production security boundary, persistent Docker deployment and SSH-only administrator access. Deployment files are prepared; no cloud host has been provisioned. Production mode now enforces stricter rules than the local-development defaults below.

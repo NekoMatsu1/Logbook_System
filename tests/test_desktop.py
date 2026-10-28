@@ -7,7 +7,8 @@ from client.api import APIError
 pytestmark=pytest.mark.skipif(os.getenv('LOGBOOK_GUI_TEST')!='1',reason='Set LOGBOOK_GUI_TEST=1 with an interactive desktop')
 
 @pytest.mark.parametrize('gated',[False,True])
-def test_tk_registration_login_and_simulated_logout(app,clock,monkeypatch,gated):
+@pytest.mark.parametrize('manual',[False,True])
+def test_tk_registration_login_and_simulated_logout(app,clock,monkeypatch,gated,manual):
     import tkinter as tk
     import client.__main__ as desktop
     class TestAPI:
@@ -67,14 +68,24 @@ def test_tk_registration_login_and_simulated_logout(app,clock,monkeypatch,gated)
             assert link.granted==(agent.session_id,agent.run_id)
             link.messages.append(dict(event='desktop_open',session_id=agent.session_id,run_id=agent.run_id))
             pump_until(lambda:root.state()=='withdrawn')
-        clock.advance(300)
-        pump_until(lambda:agent.timers.warning=='logout')
-        if gated:
-            assert link.warning_state[0]=='logout'
+        if manual:
+            if not gated:
+                assert agent.logout_button.cget('text') == 'Log out'
+                agent.session_window.withdraw()
+                agent.show_session_window()
+                assert agent.session_window.state() != 'withdrawn'
+                agent.logout_button.invoke()
+            else:
+                agent.manual_logout()
         else:
-            assert agent.warning is not None
-            assert 'Are you still working?' in agent.warning_text.get()
-        clock.advance(60)
+            clock.advance(300)
+            pump_until(lambda:agent.timers.warning=='logout')
+            if gated:
+                assert link.warning_state[0]=='logout'
+            else:
+                assert agent.warning is not None
+                assert 'Are you still working?' in agent.warning_text.get()
+            clock.advance(60)
         pump_until(lambda:agent.session_id is None and not agent.busy)
         assert adapter.actions==['logout']
         if gated: assert link.locked and root.state()!='withdrawn'
@@ -85,7 +96,7 @@ def test_tk_registration_login_and_simulated_logout(app,clock,monkeypatch,gated)
         clock.advance(60)
         pump_until(lambda:adapter.actions==['logout','shutdown'])
         with app.test_client() as web:
-            assert 'simulated_inactivity' in web.get('/admin/records').text
+            assert ('simulated_manual_logout' if manual else 'simulated_inactivity') in web.get('/admin/records').text
     finally:
         agent.pool.shutdown(wait=True,cancel_futures=True)
         root.destroy()

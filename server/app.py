@@ -243,7 +243,7 @@ def create_app(config=None):
     def end(key):
         data = body()
         run, reason = field(data, 'run_id'), field(data, 'reason')
-        if reason not in ('inactivity', 'os_signout', 'simulated_inactivity'):
+        if reason not in ('inactivity', 'os_signout', 'simulated_inactivity', 'manual_logout', 'simulated_manual_logout'):
             abort(400, 'Invalid end reason')
         with g.db:
             g.db.execute('BEGIN IMMEDIATE')

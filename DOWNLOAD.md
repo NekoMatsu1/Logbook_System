@@ -8,6 +8,14 @@
 4. Ask the laboratory administrator for a **new configuration for this PC**. Put it in `Logbook\config\client.json`, then double-click **Logbook.exe**. You can also select the JSON when prompted.
 5. Confirm the window shows the correct computer ID and **SIMULATION**. Complete the second-PC checklist below before enabling real OS operations.
 
+## Student logout
+
+After login, the portable Windows app shows a session window with a **Log out** button. Click it and confirm. Closing the session window now minimizes it; click its taskbar button to reopen it.
+
+The server must confirm the session ending before manual logout proceeds. If the connection fails or the server is too old, the session stays active and the app asks you to retry. In simulation mode, logout ends the logbook session while Windows stays signed in. In live mode, it also requests OS sign-out, which closes applications; save your work first.
+
+**Existing PythonAnywhere server:** manual logout needs the updated server too. In its Bash console, run `cd ~/lab-logbook && git pull --ff-only`, then click **Web > Reload**. This updates code without replacing private settings or the database. Do this before using the new client. Native Windows kiosk sessions still use Windows sign-out; the new button is in the portable desktop client's session window.
+
 Python, pip, Git and VS Code are not required for this Windows download. An administrator must first run the central server and provision each client. This is a networked laboratory client; downloading it does not create a hosted server or allow offline sign-in.
 
 The executable is unsigned. School policy may require administrator review or signing before it can run. Do not disable endpoint protections. Linux Mint users should follow the Python/X11 setup in README.md; this Windows ZIP does not run on Linux or macOS.

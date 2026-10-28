@@ -32,6 +32,7 @@ class Desktop:
         self.failure_count = 0
         self.pending_events = []
         self.session_window = None
+        self.logout_button = None
         self.student_name = None
         self.next_heartbeat = 0
         self.pool = ThreadPoolExecutor(max_workers=1)
@@ -168,10 +169,7 @@ class Desktop:
                 self.status.set('Student session saved. Waiting for supervisor authorization before opening the desktop.')
             else:
                 self.root.withdraw()
-                self.session_window = tk.Toplevel(self.root)
-                self.session_window.title('Laboratory session status')
-                ttk.Label(self.session_window,textvariable=self.status,padding=18,wraplength=400).pack()
-                self.session_window.protocol('WM_DELETE_WINDOW',self.session_window.withdraw)
+                self.show_session_window()
                 self.status.set(f'{self.student_name} · {self.config["computer_id"]}\nServer connected. ' + ('SIMULATION' if self.adapter.simulation else 'LIVE OS OPERATIONS'))
         def failure(error):
             self.failed(error)
@@ -203,17 +201,56 @@ class Desktop:
                 self.status.set(f'{self.student_name} · {self.config["computer_id"]}\nServer connected. ' + ('SIMULATION' if self.adapter.simulation else 'LIVE OS OPERATIONS'))
         self.job(heartbeat_work,received)
 
+    def show_session_window(self):
+        if self.session_window is None:
+            self.session_window = tk.Toplevel(self.root)
+            self.session_window.title('Laboratory session status')
+            ttk.Label(self.session_window,textvariable=self.status,padding=18,wraplength=400).pack()
+            self.logout_button = ttk.Button(self.session_window,text='Log out',command=self.manual_logout)
+            self.logout_button.pack(pady=(0,12))
+            ttk.Label(self.session_window,text='Closing this window minimizes it. Reopen it from the taskbar.',
+                      padding=10,wraplength=400).pack()
+            self.session_window.protocol('WM_DELETE_WINDOW',self.session_window.iconify)
+        self.session_window.deiconify()
+        self.session_window.lift()
+
+    def manual_logout(self):
+        if not self.session_id or self.busy or self.pending_end:
+            return
+        # The modal dialog runs Tk events: pause automatic timer actions while asking.
+        self.timers.blocked = True
+        try:
+            confirmed = messagebox.askyesno('Log out',
+                'End your logbook session?' + ('\nSimulation: Windows will stay signed in.'
+                if self.adapter.simulation else '\nSave your work first. Windows sign-out will close your applications.'),
+                parent=self.session_window or self.root)
+        finally:
+            self.timers.blocked = False
+        if confirmed:
+            self.end_session('manual_logout',require_ack=True)
+
     def end_for_inactivity(self):
+        self.end_session('inactivity')
+
+    def end_session(self, reason, require_ack=False):
+        if not self.session_id or self.busy or self.pending_end:
+            return
         self.pending_end = True
         self.timers.blocked = True
         key = self.session_id
-        reason = 'simulated_inactivity' if self.adapter.simulation else 'inactivity'
+        reason = 'simulated_' + reason if self.adapter.simulation else reason
         def ended(result):
             finish(result.get('status') == 'completed')
         def failed(error):
             self.failed(error)
             finish(False)
         def finish(saved):
+            if require_ack and not saved:
+                self.pending_end = False
+                self.timers.blocked = False
+                self.status.set('Log out was not confirmed. Your session continues. Check the connection and '
+                                'ask the admin to update the server if it rejects manual logout. Try again.')
+                return
             if self.gate:
                 self.gate.lock()
             self.session_id = None
@@ -221,6 +258,7 @@ class Desktop:
             if self.session_window is not None:
                 self.session_window.destroy()
                 self.session_window = None
+                self.logout_button = None
             self.pending_end = False
             self.timers.blocked = False
             self.timers.reset()
@@ -319,6 +357,8 @@ class Desktop:
             else:
                 self.heartbeat()
         self.submit.configure(state='disabled' if self.busy or self.pending_start or self.session_id else 'normal')
+        if self.logout_button is not None:
+            self.logout_button.configure(state='disabled' if self.busy or self.pending_end else 'normal')
         self.root.after(200,self.tick)
 
     def close(self):
