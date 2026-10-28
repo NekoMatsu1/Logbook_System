@@ -1,4 +1,15 @@
-# Deployment readiness — 2026-10-28
+# Deployment readiness — 2026-10-29
+
+## Functional audit (2026-10-29)
+
+- Full local suite, including GUI workflows: **114 passed**. Dependency, Python compilation, dashboard JavaScript, PowerShell installer, and Linux shell syntax checks passed.
+- Inactivity and interactive shutdown warnings now require **Yes, I'm still here** before the deadline. Mouse movement, typing, unrelated clicks, and form focus do not cancel them. Timer and GUI tests exercise acknowledgement and expiry, including the supervised warning protocol.
+- Student manual/automatic logout is authorized by the enrolled PC credential, independently of administrator access. New tests end sessions from a network that is denied the admin dashboard.
+- Corrected the client getting stuck on an already-interrupted session; its historical end time and duration stay unknown. Manual logout failures now show the actual connection/version issue instead of implying admin approval.
+- Added tests for concurrent/repeated endings, fractional durations and UTC CSV values, wrong-PC/run rejection, backward server time, backup restoration, and failure during PC configuration-file creation.
+- Added a verified online SQLite backup command. Enrollment rolls back if its credential file cannot be saved. The launcher shares one Tk root between first-run setup and the desktop.
+- The live PythonAnywhere server still rejected a nonexistent manual-logout probe with **400: Invalid end reason** during this audit. No actual session was ended by that probe. Updating/reloading the hosted code is still required; local fixes are not proof of deployment.
+- UI redesign is deferred. Owner requirements and the requested minimal slate/teal direction are recorded in [PROJECT-REQUIREMENTS.md](PROJECT-REQUIREMENTS.md). Native OS, second-network, expected-load and real-backup rollout checks remain required.
 
 ## Download release
 

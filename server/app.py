@@ -254,8 +254,10 @@ def create_app(config=None):
             if row['status'] == 'active':
                 stamp = now()
                 duration = (datetime.fromisoformat(stamp) - datetime.fromisoformat(row['login_time'])).total_seconds()
+                if duration < 0:
+                    abort(409, 'Server clock precedes session start; logout was not recorded')
                 g.db.execute("UPDATE sessions SET status='completed',logout_time=?,duration=?,end_reason=? WHERE session_id=?",
-                             (stamp, max(0, duration), reason, key))
+                             (stamp, duration, reason, key))
                 event('logout', f'{key}: {reason}', g.computer)
         return jsonify(dict(g.db.execute('SELECT * FROM sessions WHERE session_id=?', (key,)).fetchone()))
 

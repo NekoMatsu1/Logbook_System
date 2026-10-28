@@ -30,9 +30,30 @@ def test_download_contains_runtime_and_placeholder_without_local_credentials(tmp
 
 
 def test_explicit_config_is_resolved_from_caller_directory(tmp_path, monkeypatch):
+    from types import SimpleNamespace
     import client.__main__ as desktop
     received = []
-    monkeypatch.setattr(desktop, 'main', lambda args: received.append(args))
+    shared_root=SimpleNamespace(withdraw=lambda:None,destroy=lambda:None)
+    monkeypatch.setattr(launcher.tk,'Tk',lambda:shared_root)
+    monkeypatch.setattr(desktop, 'main', lambda args,root=None: received.append((args,root)))
     monkeypatch.chdir(tmp_path)
     assert launcher.main(['--config', 'private.json']) == 0
-    assert received == [['--config', str((tmp_path / 'private.json').resolve())]]
+    assert received == [(['--config', str((tmp_path / 'private.json').resolve())],shared_root)]
+
+
+def test_first_run_picker_reuses_one_tk_root(tmp_path,monkeypatch):
+    from types import SimpleNamespace
+    import client.__main__ as desktop
+    roots=[]
+    received=[]
+    def create_root():
+        root=SimpleNamespace(withdraw=lambda:None,destroy=lambda:None)
+        roots.append(root)
+        return root
+    monkeypatch.setattr(launcher.tk,'Tk',create_root)
+    monkeypatch.setattr(launcher,'default_config',lambda:tmp_path/'missing.json')
+    monkeypatch.setattr(launcher.messagebox,'showinfo',lambda *args,**kwargs:None)
+    monkeypatch.setattr(launcher.filedialog,'askopenfilename',lambda **kwargs:str(tmp_path/'selected.json'))
+    monkeypatch.setattr(desktop,'main',lambda args,root=None:received.append(root))
+    assert launcher.main([])==0
+    assert len(roots)==1 and received==roots

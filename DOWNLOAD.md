@@ -10,9 +10,13 @@
 
 ## Student logout
 
+When an inactivity warning appears, click **Yes, I'm still here** before the countdown ends to keep working. Mouse movement, typing, and other clicks will not dismiss it. If you do nothing, automatic logout follows. Interactive shutdown warnings also need that button to cancel.
+
 After login, the portable Windows app shows a session window with a **Log out** button. Click it and confirm. Closing the session window now minimizes it; click its taskbar button to reopen it.
 
 The server must confirm the session ending before manual logout proceeds. If the connection fails or the server is too old, the session stays active and the app asks you to retry. In simulation mode, logout ends the logbook session while Windows stays signed in. In live mode, it also requests OS sign-out, which closes applications; save your work first.
+
+No admin approval is needed to end a student's own session. Server confirmation means the record was saved. If a session is already marked interrupted, the app lets the student leave while preserving its unknown end time. It does not invent a completed record.
 
 **Existing PythonAnywhere server:** manual logout needs the updated server too. In its Bash console, run `cd ~/lab-logbook && git pull --ff-only`, then click **Web > Reload**. This updates code without replacing private settings or the database. Do this before using the new client. Native Windows kiosk sessions still use Windows sign-out; the new button is in the portable desktop client's session window.
 

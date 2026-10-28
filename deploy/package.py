@@ -5,7 +5,7 @@ from zipfile import ZipFile, ZIP_DEFLATED
 ROOT = Path(__file__).resolve().parent.parent
 
 def package(destination):
-    files = [ROOT / 'common.py', ROOT / 'requirements-server.txt']
+    files = [ROOT / 'common.py', ROOT / 'requirements-server.txt', ROOT / 'BACKUPS.md']
     files += [p for p in (ROOT / 'server').rglob('*') if p.is_file() and '__pycache__' not in p.parts and p.suffix != '.pyc']
     files += [ROOT / 'deploy' / name for name in (
         'Dockerfile', 'compose.yaml', 'Caddyfile', '.env.example', 'prepare.py', 'README.md',

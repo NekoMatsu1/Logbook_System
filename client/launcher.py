@@ -40,35 +40,32 @@ def main(argv=None):
     if args.self_test:
         self_test(args.self_test)
         return 0
+    root = tk.Tk()
+    root.withdraw()
     config = args.config or default_config()
-    if not config.is_file() and args.config is None:
-        root = tk.Tk()
-        root.withdraw()
-        try:
+    try:
+        if not config.is_file() and args.config is None:
             messagebox.showinfo('Configure this PC',
                                 'Select the private client JSON supplied by your laboratory administrator. '
                                 'Each PC needs its own configuration. To skip this prompt next time, '
                                 'place it in the config folder beside Logbook.exe as client.json.', parent=root)
             selected = filedialog.askopenfilename(parent=root, title='Select this PC\'s configuration',
                                                    filetypes=[('Client configuration', '*.json')])
-        finally:
-            root.destroy()
-        if not selected:
-            return 0
-        config = Path(selected)
-    try:
+            if not selected:
+                return 0
+            config = Path(selected)
         from .__main__ import main as desktop_main
-        desktop_main(['--config', str(config.resolve())])
+        desktop_main(['--config', str(config.resolve())],root=root)
     except Exception:
         # Do not expose credentials or private config contents in a startup error.
-        root = tk.Tk()
-        root.withdraw()
-        try:
-            messagebox.showerror('Logbook could not start',
-                                 'Check that no other Logbook is running and that this PC has a valid, '
-                                 'writable configuration. Windows-protected configurations work only on '
-                                 'the PC where they were first opened. Ask your administrator for help.', parent=root)
-        finally:
-            root.destroy()
+        messagebox.showerror('Logbook could not start',
+                             'Check that no other Logbook is running and that this PC has a valid, '
+                             'writable configuration. Windows-protected configurations work only on '
+                             'the PC where they were first opened. Ask your administrator for help.', parent=root)
         return 1
+    finally:
+        try:
+            root.destroy()
+        except tk.TclError:
+            pass  # The desktop's Close handler may already have destroyed it.
     return 0

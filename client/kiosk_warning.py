@@ -1,5 +1,6 @@
 """Warning-only UI on the work desktop; never performs power/session operations."""
 import argparse
+import sys
 import time
 import tkinter as tk
 from tkinter import ttk
@@ -8,6 +9,7 @@ def main():
     parser=argparse.ArgumentParser()
     parser.add_argument('--seconds',type=int,required=True)
     parser.add_argument('--simulation',action='store_true')
+    parser.add_argument('--confirmation-token',required=True)
     args=parser.parse_args()
     root=tk.Tk()
     root.title('Laboratory inactivity warning')
@@ -16,10 +18,17 @@ def main():
     text=tk.StringVar()
     ttk.Label(root,textvariable=text,padding=30,wraplength=480,font=('',14)).pack()
     deadline=time.monotonic()+args.seconds
+    def confirm():
+        if time.monotonic() >= deadline:
+            return
+        print(args.confirmation_token,file=sys.stdout,flush=True)
+        button.configure(state='disabled')
+    button=ttk.Button(root,text="Yes, I'm still here",command=confirm)
+    button.pack(pady=(0,20))
     def tick():
         import math
         seconds=max(0,math.ceil(deadline-time.monotonic()))
-        text.set(('SIMULATION\n' if args.simulation else '')+f'Are you still working?\nAutomatic sign-out in {seconds} seconds may close applications and lose unsaved work.\nUse the keyboard or mouse to cancel.')
+        text.set(('SIMULATION\n' if args.simulation else '')+f'Are you still working?\nAutomatic sign-out in {seconds} seconds may close applications and lose unsaved work.\nClick "Yes, I\'m still here" to keep your session.')
         root.after(200,tick)
     tick()
     root.mainloop()

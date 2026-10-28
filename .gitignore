@@ -10,6 +10,8 @@ data/
 config/*.json
 !config/*.example.json
 *.sqlite*
+*.db
+backups/
 deploy/.env
 deploy/secrets/
 deploy/backups/

@@ -1,4 +1,5 @@
 from client.state import Timers
+import pytest
 
 def test_inactivity_cancel(clock):
     timers=Timers(clock)
@@ -6,14 +7,16 @@ def test_inactivity_cancel(clock):
     clock.advance(300)
     assert timers.tick() is None and timers.warning=='logout'
     clock.advance(30)
-    timers.activity(keyboard=True)
+    timers.activity(keyboard=True,mouse_click=True,mouse_moved=True)
+    assert timers.warning=='logout'
+    assert timers.confirm_presence() is True
     assert timers.warning is None
     clock.advance(300)
     timers.tick()
     clock.advance(60)
     assert timers.tick()=='logout'
 
-def test_shutdown_mouse_only(clock):
+def test_shutdown_requires_presence_button(clock):
     timers=Timers(clock)
     clock.advance(600)
     timers.tick()
@@ -21,6 +24,10 @@ def test_shutdown_mouse_only(clock):
     timers.activity(keyboard=True,mouse_click=True)
     assert timers.warning=='shutdown'
     timers.activity(mouse_moved=True)
+    assert timers.warning=='shutdown'
+    timers.identify()  # Random form focus must not dismiss the warning either.
+    assert timers.warning=='shutdown' and not timers.identifying
+    assert timers.confirm_presence() is True
     assert timers.warning is None
     clock.advance(600)
     timers.tick()
@@ -69,4 +76,26 @@ def test_loaded_settings_change_and_disable(clock):
     assert timers.warning=='shutdown'
     timers.configure({'auto_shutdown':False})
     clock.advance(60)
+    assert timers.tick() is None and timers.warning is None
+
+
+@pytest.mark.parametrize('active',[False,True])
+def test_presence_button_cannot_cancel_an_expired_warning(clock,active):
+    timers=Timers(clock)
+    if active:
+        timers.start()
+    assert timers.confirm_presence() is False
+    clock.advance(300 if active else 600)
+    timers.tick()
+    clock.advance(60)
+    assert timers.confirm_presence() is False
+    assert timers.tick()==('logout' if active else 'shutdown')
+
+
+def test_activity_before_warning_still_prevents_inactivity(clock):
+    timers=Timers(clock)
+    timers.start()
+    clock.advance(290)
+    timers.activity(mouse_moved=True)
+    clock.advance(20)
     assert timers.tick() is None and timers.warning is None

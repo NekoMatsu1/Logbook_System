@@ -23,7 +23,7 @@ class Timers:
             self.wait_since = self.clock()
 
     def identify(self):
-        if self.active or self.identifying or self.blocked:
+        if self.active or self.identifying or self.blocked or self.warning:
             return
         # Freeze remaining time; focus events cannot refresh this deadline.
         self.remaining = max(0, self.remaining - (self.clock() - self.wait_since))
@@ -50,11 +50,21 @@ class Timers:
         self.wait_since = self.clock()
 
     def activity(self, keyboard=False, mouse_moved=False, mouse_click=False):
-        if self.active and (keyboard or mouse_moved or mouse_click):
+        if self.active and self.warning is None and (keyboard or mouse_moved or mouse_click):
             self.last_activity = self.clock()
-            self.warning = None
-        elif not self.active and self.warning == 'shutdown' and mouse_moved:
+
+    def confirm_presence(self):
+        if self.warning not in ('logout','shutdown') or self.blocked:
+            return False
+        limit=self.settings['logout_warning_seconds' if self.warning=='logout' else 'shutdown_warning_seconds']
+        if self.clock()-self.warning_at >= limit:
+            return False
+        if self.warning=='shutdown':
             self.reset()
+        else:
+            self.last_activity=self.clock()
+            self.warning=None
+        return True
 
     def tick(self):
         now = self.clock()

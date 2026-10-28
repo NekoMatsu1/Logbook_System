@@ -4,6 +4,7 @@ import json
 import logging
 from pathlib import Path
 import queue
+import secrets
 import subprocess
 import sys
 import threading
@@ -54,6 +55,13 @@ class Supervisor:
         else:
             self.requested=None
             self.gate.lock()
+
+    def presence_confirmation(self,message):
+        if (self.active and message.get('event')=='presence_confirmed'
+                and message.get('session_id')==self.active and message.get('run_id')==self.run_id
+                and self.warning and self.warning.get('kind')=='logout'):
+            return dict(event='confirm_presence',session_id=self.active,run_id=self.run_id)
+        return None
 
 def main():
     parser=argparse.ArgumentParser()
@@ -106,6 +114,11 @@ def main():
                 source,message=events.get_nowait()
                 if source==child.pid:
                     supervisor.handle(message)
+                elif warning is not None and source==warning.pid:
+                    confirmation=supervisor.presence_confirmation(message)
+                    if confirmation:
+                        child.stdin.write(json.dumps(confirmation)+'\n')
+                        child.stdin.flush()
             if time.monotonic()>=last_retry:
                 last_retry=time.monotonic()+2
                 try:
@@ -123,9 +136,16 @@ def main():
             if display and display.get('kind')=='logout' and warning is None:
                 seconds=display.get('seconds')
                 if isinstance(seconds,int) and 0<=seconds<=86400:
-                    command=[sys.executable,'-m','client.kiosk_warning','--seconds',str(seconds)]
+                    token=secrets.token_hex(24)
+                    command=[sys.executable,'-m','client.kiosk_warning','--seconds',str(seconds),'--confirmation-token',token]
                     if simulation: command.append('--simulation')
-                    warning=subprocess.Popen(command,**gate.warning_options())
+                    warning=subprocess.Popen(command,stdout=subprocess.PIPE,text=True,encoding='utf-8',**gate.warning_options())
+                    def read_confirmation(process,expected,key,run):
+                        for line in process.stdout:
+                            if line.strip()==expected:
+                                events.put((process.pid,dict(event='presence_confirmed',session_id=key,run_id=run)))
+                                break
+                    threading.Thread(target=read_confirmation,args=(warning,token,supervisor.active,supervisor.run_id),daemon=True).start()
             elif (not display or display.get('kind') is None) and warning is not None:
                 warning.terminate()
                 warning.wait(timeout=5)

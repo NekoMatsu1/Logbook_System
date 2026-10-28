@@ -71,6 +71,7 @@ class Desktop:
         ttk.Label(frame,textvariable=self.status,wraplength=500).pack(anchor='w',pady=8)
         ttk.Label(frame,text='A shared desktop account requires separate OS policies for access control.',wraplength=500).pack(anchor='w')
         self.warning = None
+        self.presence_button = None
         self.warning_text = tk.StringVar()
         root.protocol('WM_DELETE_WINDOW',self.close)
         try:
@@ -119,6 +120,9 @@ class Desktop:
 
     def identify(self):
         if self.busy or self.pending_start or self.session_id:
+            return
+        if self.timers.warning:
+            self.status.set('Click "Yes, I\'m still here" on the warning before continuing.')
             return
         if not self.monitor_ok:
             self.status.set('Global desktop activity monitoring is unavailable; cannot start a session.')
@@ -240,16 +244,19 @@ class Desktop:
         key = self.session_id
         reason = 'simulated_' + reason if self.adapter.simulation else reason
         def ended(result):
-            finish(result.get('status') == 'completed')
+            status = result.get('status')
+            finish(status == 'completed', interrupted=status == 'interrupted')
         def failed(error):
             self.failed(error)
-            finish(False)
-        def finish(saved):
-            if require_ack and not saved:
+            finish(False, error=error)
+        def finish(saved, interrupted=False, error=None):
+            if require_ack and not (saved or interrupted):
                 self.pending_end = False
                 self.timers.blocked = False
-                self.status.set('Log out was not confirmed. Your session continues. Check the connection and '
-                                'ask the admin to update the server if it rejects manual logout. Try again.')
+                detail = str(error)[:250] if error else 'Unexpected session status returned by the server.'
+                if detail.startswith('400:') and 'Invalid end reason' in detail:
+                    detail = 'The server version is too old for manual logout. Update and reload the hosted server.'
+                self.status.set('Log out was not saved. Your session continues. ' + detail + ' Try again.')
                 return
             if self.gate:
                 self.gate.lock()
@@ -265,7 +272,10 @@ class Desktop:
             self.root.deiconify()
             self.sid.set('')
             self.name.set('')
-            self.status.set(('Session ending acknowledged. ' if saved else 'End NOT saved; central record requires review. ') + ('SIMULATED OS sign-out.' if self.adapter.simulation else 'Requesting OS sign-out.'))
+            record_status = ('Session ending saved. ' if saved else
+                             'Session was already interrupted; its exact end time remains unknown. ' if interrupted else
+                             'End NOT saved; central record requires review. ')
+            self.status.set(record_status + ('SIMULATED OS sign-out.' if self.adapter.simulation else 'Requesting OS sign-out.'))
             try:
                 self.adapter.action('logout')
             except Exception as error:
@@ -285,6 +295,12 @@ class Desktop:
             except Exception:
                 logging.warning('OS sign-out not acknowledged; next run will mark interruption')
 
+    def confirm_presence(self):
+        if self.timers.confirm_presence():
+            self.show_warning()
+            return True
+        return False
+
     def show_warning(self):
         if self.gate:
             self.gate.warning(self.timers.warning if self.timers.active else None,self.timers.countdown())
@@ -297,14 +313,18 @@ class Desktop:
                 self.warning.attributes('-topmost',True)
                 self.warning.protocol('WM_DELETE_WINDOW',lambda:None)
                 ttk.Label(self.warning,textvariable=self.warning_text,padding=30,wraplength=460,font=('',14)).pack()
+                self.presence_button=ttk.Button(self.warning,text="Yes, I'm still here",command=self.confirm_presence)
+                self.presence_button.pack(pady=(0,20))
             prefix = 'SIMULATION\n' if self.adapter.simulation else ''
             seconds = self.timers.countdown()
-            text = (f'Are you still working?\nAutomatic sign-out in {seconds} seconds may close applications and lose unsaved work.\nUse the keyboard or mouse to cancel.' if self.timers.warning=='logout' else
-                    f'Shutdown in {seconds} seconds.\nMove the mouse to cancel shutdown. Keyboard input or a click alone will not cancel it.')
+            self.presence_button.configure(state='normal' if seconds>0 else 'disabled')
+            text = (f'Are you still working?\nAutomatic sign-out in {seconds} seconds may close applications and lose unsaved work.\nClick "Yes, I\'m still here" to keep your session.' if self.timers.warning=='logout' else
+                    f'Shutdown in {seconds} seconds.\nClick "Yes, I\'m still here" to cancel shutdown.')
             self.warning_text.set(prefix+text)
         elif self.warning is not None:
             self.warning.destroy()
             self.warning = None
+            self.presence_button = None
 
     def sample_activity(self):
         """Pause automatic actions on sample failure without changing server settings."""
@@ -321,6 +341,9 @@ class Desktop:
     def tick(self):
         if self.gate:
             for message in self.gate.poll():
+                if (message.get('event')=='confirm_presence' and message.get('session_id')==self.session_id
+                        and message.get('run_id')==self.run_id):
+                    self.confirm_presence()
                 if message.get('event')=='desktop_open' and message.get('session_id')==self.session_id and message.get('run_id')==self.run_id:
                     self.root.withdraw()
         try:
@@ -371,7 +394,7 @@ class Desktop:
         self.pool.shutdown(wait=False,cancel_futures=True)
         self.root.destroy()
 
-def main(argv=None):
+def main(argv=None, root=None):
     parser = argparse.ArgumentParser()
     parser.add_argument('--config', default='config/client.json')
     parser.add_argument('--shell-child',action='store_true',help=argparse.SUPPRESS)
@@ -379,12 +402,13 @@ def main(argv=None):
     logging.basicConfig(level=logging.INFO,format='%(asctime)s %(levelname)s %(message)s')
     config = load_config(args.config)
     instance_lock = acquire()
-    root = tk.Tk()
+    root = root if root is not None else tk.Tk()
     if args.shell_child:
         from .gate import ShellLink
         Desktop(root,config,gate=ShellLink())
     else:
         Desktop(root,config)
+    root.deiconify()
     root.mainloop()
 
 if __name__ == '__main__':

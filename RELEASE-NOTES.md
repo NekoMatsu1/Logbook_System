@@ -2,9 +2,13 @@ Portable laboratory logbook client for controlled testing on Windows 10/11 x64.
 
 New in this release:
 
-- **Log out** in the portable client's session window, with confirmation.
-- Closing that window minimizes it so it can be reopened from the taskbar.
-- Manual logout keeps the session active if the server cannot confirm its ending. Simulation ends only the logbook session; live mode requests OS sign-out too.
+- Students can log out without admin approval, or be logged out after the inactivity warning. Closing the session window still minimizes it.
+- Inactivity and interactive shutdown warnings require **Yes, I'm still here**. Mouse movement, typing, and random clicks no longer cancel them. Confirmation at or after the deadline cannot revive a session.
+- Manual logout now explains server/version failures and handles already-interrupted records without making up an end time.
+- The server rejects backward logout timestamps instead of silently storing a zero duration.
+- Added verified SQLite backups and tests for restoration, concurrent logout retries, permissions, and fractional record values. Failed PC setup-file creation now rolls back enrollment.
+- First-run configuration and the desktop share one Tk root to avoid repeated GUI initialization.
+- The existing layout is kept; the minimal slate/teal UI direction is recorded for the next design pass.
 
 **Update the server before using this client:** in the PythonAnywhere Bash console, run `cd ~/lab-logbook && git pull --ff-only`, then click **Web > Reload**. Existing settings and records are preserved. Older servers reject the new manual logout reasons.
 

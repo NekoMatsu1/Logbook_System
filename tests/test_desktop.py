@@ -93,6 +93,19 @@ def test_tk_registration_login_and_simulated_logout(app,clock,monkeypatch,gated,
             else:
                 assert agent.warning is not None
                 assert 'Are you still working?' in agent.warning_text.get()
+                assert agent.presence_button.cget('text')=="Yes, I'm still here"
+            agent.timers.activity(mouse_moved=True,mouse_click=True,keyboard=True)
+            assert agent.timers.warning=='logout'
+            if gated:
+                link.messages.append(dict(event='confirm_presence',session_id=agent.session_id,run_id=agent.run_id))
+                pump_until(lambda:agent.timers.warning is None)
+            else:
+                agent.presence_button.invoke()
+                assert agent.timers.warning is None
+            # Acknowledgement starts a fresh inactivity interval, not an early session ending.
+            assert agent.session_id is not None
+            clock.advance(300)
+            pump_until(lambda:agent.timers.warning=='logout')
             clock.advance(60)
         pump_until(lambda:agent.session_id is None and not agent.busy)
         assert adapter.actions==['logout']
@@ -100,7 +113,17 @@ def test_tk_registration_login_and_simulated_logout(app,clock,monkeypatch,gated,
         assert not agent.timers.active
         clock.advance(600)
         pump_until(lambda:agent.timers.warning=='shutdown')
-        assert 'Move the mouse' in agent.warning_text.get()
+        assert "Yes, I'm still here" in agent.warning_text.get()
+        agent.timers.activity(mouse_moved=True,mouse_click=True,keyboard=True)
+        assert agent.timers.warning=='shutdown'
+        agent.identify()
+        assert 'on the warning before continuing' in agent.status.get()
+        assert agent.timers.warning=='shutdown'
+        agent.presence_button.invoke()
+        assert agent.timers.warning is None
+        assert adapter.actions==['logout']
+        clock.advance(600)
+        pump_until(lambda:agent.timers.warning=='shutdown')
         clock.advance(60)
         pump_until(lambda:adapter.actions==['logout','shutdown'])
         with app.test_client() as web:

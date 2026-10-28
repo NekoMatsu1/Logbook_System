@@ -72,6 +72,22 @@ def test_agent_restart_relocks_desktop():
     supervisor.handle({'event':'hello','run_id':'new-run'})
     assert not gate.is_open and supervisor.active is None
 
+
+def test_presence_confirmation_is_bound_to_current_session_and_run():
+    gate,api=Gate(),API()
+    supervisor=Supervisor(api,gate)
+    supervisor.handle({'event':'hello','run_id':'run'})
+    supervisor.handle({'event':'grant','run_id':'run','session_id':'session'})
+    supervisor.resolve()
+    valid={'event':'presence_confirmed','session_id':'session','run_id':'run'}
+    assert supervisor.presence_confirmation(valid) is None
+    supervisor.handle({'event':'warning','kind':'logout','seconds':30})
+    assert supervisor.presence_confirmation(valid)==dict(event='confirm_presence',session_id='session',run_id='run')
+    assert supervisor.presence_confirmation(valid|{'session_id':'old'}) is None
+    assert supervisor.presence_confirmation(valid|{'run_id':'old'}) is None
+    supervisor.handle({'event':'lock'})
+    assert supervisor.presence_confirmation(valid) is None
+
 @pytest.mark.skipif(sys.platform!='win32',reason='Windows DPAPI test')
 def test_windows_machine_credential_is_encrypted_and_readable_on_same_pc(tmp_path):
     path=tmp_path/'client.json'

@@ -4,7 +4,7 @@ A logbook for a computer lab. Students register their name and ID, then use thei
 
 ## Download
 
-**[Download for Windows](https://github.com/NekoMatsu1/Logbook_System/releases/download/v0.1.2-test.1/Logbook-Windows-x64.zip)** | [All releases](https://github.com/NekoMatsu1/Logbook_System/releases)
+**[Download for Windows](https://github.com/NekoMatsu1/Logbook_System/releases/download/v0.1.3-test.1/Logbook-Windows-x64.zip)** | [All releases](https://github.com/NekoMatsu1/Logbook_System/releases)
 
 The download is **Logbook-Windows-x64.zip**. It is a test version.
 
@@ -24,7 +24,9 @@ The server needs monthly renewal in PythonAnywhere's Web tab. It can keep runnin
 - Keeps student and session records on one server.
 - Shows the student name before sign-in.
 - Shows idle warnings and supports automatic sign-out.
+- Warning countdowns need **Yes, I'm still here** to cancel. Mouse movement and unrelated clicks do not dismiss them.
 - Lets students click **Log out** in the portable app's session window. Closing that window minimizes it; reopen it from the taskbar.
+- Student logout does not need admin approval. The server must save the ending; a connection or version error is shown instead of a false success.
 - Gives the admin a dashboard, filters, and CSV exports.
 - Runs on Windows 10/11. Linux Mint X11 setup is also available.
 
@@ -36,6 +38,8 @@ Before using it in a real lab, test it on the actual PCs. Backup restore, access
 
 ## Guides
 
+- [Project requirements and UI direction](PROJECT-REQUIREMENTS.md)
+- [Back up the records](BACKUPS.md)
 - [Free internet server without a card](deploy/PYTHONANYWHERE.md)
 - [Start with Oracle Cloud](deploy/ORACLE.md)
 - [Download and PC setup](DOWNLOAD.md)
