@@ -1,11 +1,29 @@
 """Build a public, credential-free Windows client with its Python/Tk runtime."""
 import hashlib
+from importlib.metadata import distribution
 from pathlib import Path
 import subprocess
 import sys
 from zipfile import ZipFile, ZIP_DEFLATED
 
 ROOT = Path(__file__).resolve().parent.parent
+
+
+def write_licenses(bundle):
+    notices = ['This download includes Python and these third-party packages.\n']
+    python_license = Path(sys.base_prefix) / 'LICENSE.txt'
+    if not python_license.is_file():
+        raise RuntimeError('Python runtime license was not found')
+    notices.append('PYTHON\n' + python_license.read_text(encoding='utf-8'))
+    for name in ('requests', 'urllib3', 'certifi', 'charset-normalizer', 'idna', 'pyinstaller'):
+        metadata = distribution(name)
+        notices.append(f'\n{name} {metadata.version}\n')
+        for file in metadata.files or []:
+            if any(part.lower().startswith(('license', 'copying')) for part in file.parts):
+                path = Path(metadata.locate_file(file))
+                if path.is_file():
+                    notices.append(path.read_text(encoding='utf-8', errors='replace'))
+    (bundle / 'THIRD-PARTY-LICENSES.txt').write_text('\n'.join(notices), encoding='utf-8')
 
 
 def package(bundle, output):
@@ -36,6 +54,7 @@ def main():
                     '--specpath', str(work), '--collect-data', 'certifi',
                     '--exclude-module', 'server', str(ROOT / 'scripts/desktop_entry.py')], check=True, cwd=ROOT)
     output = ROOT / 'dist' / 'Logbook-Windows-x64.zip'
+    write_licenses(work / 'dist' / 'Logbook')
     package(work / 'dist' / 'Logbook', output)
     # A clean extraction is what users receive; test it from an unrelated working directory.
     smoke = work / 'smoke'
