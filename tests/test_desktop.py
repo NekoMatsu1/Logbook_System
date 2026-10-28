@@ -6,9 +6,16 @@ from client.api import APIError
 
 pytestmark=pytest.mark.skipif(os.getenv('LOGBOOK_GUI_TEST')!='1',reason='Set LOGBOOK_GUI_TEST=1 with an interactive desktop')
 
+@pytest.fixture(scope='module')
+def desktop_root():
+    import tkinter as tk
+    root=tk.Tk()
+    yield root
+    root.destroy()
+
 @pytest.mark.parametrize('gated',[False,True])
 @pytest.mark.parametrize('manual',[False,True])
-def test_tk_registration_login_and_simulated_logout(app,clock,monkeypatch,gated,manual):
+def test_tk_registration_login_and_simulated_logout(app,clock,monkeypatch,gated,manual,desktop_root):
     import tkinter as tk
     import client.__main__ as desktop
     class TestAPI:
@@ -40,7 +47,8 @@ def test_tk_registration_login_and_simulated_logout(app,clock,monkeypatch,gated,
     monkeypatch.setattr(desktop,'API',TestAPI)
     monkeypatch.setattr(desktop,'load',lambda _:adapter)
     monkeypatch.setattr(desktop.messagebox,'askyesno',lambda *args,**kwargs:True)
-    root=tk.Tk()
+    root=desktop_root
+    root.deiconify()
     agent=desktop.Desktop(root,{'computer_id':'LAB-PC-01','simulation':True},gate=link)
     agent.timers.clock=clock
     agent.timers.last_activity=clock()
@@ -99,4 +107,8 @@ def test_tk_registration_login_and_simulated_logout(app,clock,monkeypatch,gated,
             assert ('simulated_manual_logout' if manual else 'simulated_inactivity') in web.get('/admin/records').text
     finally:
         agent.pool.shutdown(wait=True,cancel_futures=True)
-        root.destroy()
+        for callback in root.tk.call('after','info'):
+            root.after_cancel(callback)
+        for widget in root.winfo_children():
+            widget.destroy()
+        root.withdraw()
