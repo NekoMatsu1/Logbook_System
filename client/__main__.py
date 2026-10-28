@@ -350,7 +350,7 @@ class Desktop:
             self.root.focus_set()
             self.status.set('Identification timed out; remaining shutdown wait resumed.')
         self.show_warning()
-        if not self.busy and time.monotonic() >= self.next_heartbeat:
+        if not self.busy and not (self.session_id and self.timers.blocked) and time.monotonic() >= self.next_heartbeat:
             self.next_heartbeat = time.monotonic()+10
             if self.pending_start:
                 self.start_request()

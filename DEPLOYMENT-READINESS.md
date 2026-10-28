@@ -32,7 +32,7 @@ The assessment below includes earlier development results. Statements about unav
 | Requirement | Evidence / remaining work |
 | --- | --- |
 | Python, Tkinter, Flask, SQLite, HTML/CSS/JS | Implemented; no replacement stack or unrelated reservation/billing/remote-screen features. |
-| Register ID and name once; preserve leading zeros; ID-only login and name confirmation | API and Tk integration tests pass. No student password or End Session control. |
+| Register ID and name once; preserve leading zeros; ID-only login and name confirmation | API and Tk integration tests pass. No student password. The portable client now has confirmed manual logout. |
 | Central records only; reject offline signup/login | Implemented. Machine configuration stores credentials, not student/session records. |
 | One active session per PC; idempotency; UTC/Manila; historical names | Transactional database and API tests pass. Interrupted sessions retain unknown end times. |
 | Activity and shutdown timers, cancellation, identification pause, configurable defaults | Fake-clock and Tk tests pass. Desktop activity monitoring implemented for Windows and Mint X11; actual Mint behavior untested. |
