@@ -74,4 +74,6 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" --prerelease --title "Logbook $GITHUB_REF_NAME (testing)" --notes-file RELEASE-NOTES.md downloads/dist/* downloads/.tools/logbook-deploy.zip
+          if ! gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release create "$GITHUB_REF_NAME" --prerelease --title "Logbook $GITHUB_REF_NAME (testing)" --notes-file RELEASE-NOTES.md downloads/dist/* downloads/.tools/logbook-deploy.zip
+          fi
