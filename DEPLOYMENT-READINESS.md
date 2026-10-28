@@ -3,6 +3,7 @@
 ## Functional audit (2026-10-29)
 
 - Full local suite, including GUI workflows: **114 passed**. Dependency, Python compilation, dashboard JavaScript, PowerShell installer, and Linux shell syntax checks passed.
+- [Clean build runners](https://github.com/NekoMatsu1/Logbook_System/actions/runs/40755814061): **114 passed on Windows; 113 passed and 1 Windows-only test skipped on Linux**. The Windows runtime ZIP was built, extracted, and smoke-tested.
 - Inactivity and interactive shutdown warnings now require **Yes, I'm still here** before the deadline. Mouse movement, typing, unrelated clicks, and form focus do not cancel them. Timer and GUI tests exercise acknowledgement and expiry, including the supervised warning protocol.
 - Student manual/automatic logout is authorized by the enrolled PC credential, independently of administrator access. New tests end sessions from a network that is denied the admin dashboard.
 - Corrected the client getting stuck on an already-interrupted session; its historical end time and duration stay unknown. Manual logout failures now show the actual connection/version issue instead of implying admin approval.
@@ -15,9 +16,9 @@
 
 The source is now on [GitHub](https://github.com/NekoMatsu1/Logbook_System). The Windows release build includes Python, Tkinter, HTTPS certificates, and the client libraries. Each PC still needs its own private server configuration. See [DOWNLOAD.md](DOWNLOAD.md).
 
-The [release build](https://github.com/NekoMatsu1/Logbook_System/actions/runs/40673824834) passed on standard Windows CPython (**75 passed**) and Linux (**74 passed, 1 Windows-only test skipped**), including the GUI tests. The Windows ZIP was extracted and its bundled Tk, certificate files, and simulated Windows adapter passed a runtime check on the build runner and this laptop. Its SHA-256 checksum, ZIP integrity, software licenses, and private-file exclusions were checked. These checks do not replace testing on the actual lab PCs.
+The [first release build](https://github.com/NekoMatsu1/Logbook_System/actions/runs/40673824834) passed on standard Windows CPython (**75 passed**) and Linux (**74 passed, 1 Windows-only test skipped**), including the GUI tests. Its ZIP integrity, software licenses, and private-file exclusions were checked. See the newer functional audit above for current results. These checks do not replace testing on the actual lab PCs.
 
-The local MSYS2 environment still showed the previously recorded Tk file-loading error in one GUI test (74 passed, 1 failed). The standard Windows runner passed that same suite. Use the bundled Windows release or standard CPython for a new PC.
+Earlier MSYS2 and Windows runner tests encountered Tk reinitialization errors. The launcher and GUI tests now share one Tk root; the current full suite passed. Use the bundled Windows release or standard CPython for a new PC.
 
 **Verdict: cloud server and first Windows PC login are working in simulation. Ready for controlled testing; not approved for unattended production deployment.**
 
