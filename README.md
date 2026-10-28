@@ -4,9 +4,9 @@ A logbook for a computer lab. Students register their name and ID, then use thei
 
 ## Download
 
-**[Download for Windows](https://github.com/NekoMatsu1/Logbook_System/releases)**
+**[Download for Windows](https://github.com/NekoMatsu1/Logbook_System/releases/download/v0.1.0-test.1/Logbook-Windows-x64.zip)** | [All releases](https://github.com/NekoMatsu1/Logbook_System/releases)
 
-Open the newest test release. Under **Assets**, choose **Logbook-Windows-x64.zip**.
+The download is **Logbook-Windows-x64.zip**. It is a test version.
 
 1. Extract the whole ZIP file.
 2. Get a setup file from your lab admin. Each PC needs its own file.

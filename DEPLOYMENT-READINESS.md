@@ -1,8 +1,16 @@
-# Deployment readiness — 2026-10-24
+# Deployment readiness — 2026-10-28
+
+## Download release
+
+The source is now on [GitHub](https://github.com/NekoMatsu1/Logbook_System). The Windows release build includes Python, Tkinter, HTTPS certificates, and the client libraries. Each PC still needs its own private server configuration. See [DOWNLOAD.md](DOWNLOAD.md).
+
+The [release build](https://github.com/NekoMatsu1/Logbook_System/actions/runs/40673824834) passed on standard Windows CPython (**75 passed**) and Linux (**74 passed, 1 Windows-only test skipped**), including the GUI tests. The Windows ZIP was extracted and its bundled Tk, certificate files, and simulated Windows adapter passed a runtime check on the build runner and this laptop. Its SHA-256 checksum, ZIP integrity, software licenses, and private-file exclusions were checked. These checks do not replace testing on the actual lab PCs.
+
+The local MSYS2 environment still showed the previously recorded Tk file-loading error in one GUI test (74 passed, 1 failed). The standard Windows runner passed that same suite. Use the bundled Windows release or standard CPython for a new PC.
 
 **Verdict: ready for controlled simulation testing; not approved for unattended production deployment. No cloud server has been deployed.**
 
-## Checks performed
+## Earlier local checks (2026-10-24)
 
 - Final full suite with `LOGBOOK_GUI_TEST=1`: **72 passed in 34.18 seconds**. Includes real Tk windows with fake activity/power adapters, API/database tests, timer tests, access restrictions, OAuth validation, migration, packaging and hosted-wrapper tests.
 - `pip check`: no broken requirements. Python compilation, dashboard JavaScript syntax and PowerShell installer parsing passed.
