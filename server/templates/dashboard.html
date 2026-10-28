@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="csrf-token" content="{{ session.csrf }}"><title>Lab logbook · {{ page }}</title>
+<link rel="stylesheet" href="{{ url_for('static',filename='style.css') }}"><script defer src="{{ url_for('static',filename='dashboard.js') }}"></script></head>
+<body><header><strong>Computer laboratory / Logbook</strong><span>Administrator · Asia/Manila</span></header>
+<nav>{% for item in ['overview','records','students','settings','events'] %}<a {% if page==item %}aria-current="page"{% endif %} href="/admin/{{ item }}">{{ item|capitalize }}</a>{% endfor %}</nav>
+{% if config.ADMIN_AUTH_MODE == 'google' %}<form method="post" action="/auth/logout"><input type="hidden" name="csrf" value="{{ session.csrf }}"><button>Sign out administrator</button></form>{% endif %}
+<main><h1>{{ page|capitalize }}</h1><p id="message" role="status"></p>
+{% if page=='overview' %}
+<div class="cards">{% for state in ['available','in-use','offline'] %}<article><b>{{ pcs|selectattr('status','equalto',state)|list|length }}</b><span>{{ state|capitalize }} computers</span></article>{% endfor %}<article><b>{{ active|length }}</b><span>Central active records</span></article></div>
+<p>Availability is based on agent heartbeats. An offline computer may still have an unfinished session. Refreshes every 10 seconds.</p>
+<table><tr><th>Computer</th><th>Status</th><th>Last connection</th><th>Student</th></tr>{% for pc in pcs %}<tr><td>{{ pc.computer_id }}</td><td>{{ pc.status }}</td><td>{{ pc.last_seen|manila }}</td><td>{% for s in active if s.computer_id==pc.computer_id %}{{ s.student_name }} ({{ s.student_id }}){% endfor %}</td></tr>{% endfor %}</table>
+{% elif page=='records' %}
+<form method="get" class="filters"><label>Student ID<input name="student" value="{{ request.args.get('student','') }}"></label><label>Computer ID<input name="computer" value="{{ request.args.get('computer','') }}"></label><label>Login date · Manila<input type="date" name="date" value="{{ request.args.get('date','') }}"></label><button>Filter</button><a href="{{ url_for('export',**request.args) }}">Export filtered CSV</a></form>
+<div class="scroll"><table><tr><th>Session</th><th>Student</th><th>Computer</th><th>Login</th><th>Logout</th><th>Seconds</th><th>Status / reason</th></tr>{% for r in records %}<tr><td>{{ r.session_id }}</td><td>{{ r.student_id }} · {{ r.student_name }}</td><td>{{ r.computer_id }}</td><td>{{ r.login_time|manila }}</td><td>{{ r.logout_time|manila }}</td><td>{{ r.duration if r.duration is not none else 'Unknown' }}</td><td>{{ r.status }} / {{ r.end_reason or '—' }}</td></tr>{% endfor %}</table></div>
+{% elif page=='students' %}
+<h2>Add registration</h2><form data-student data-create="true"><label>Student ID<input name="student_id" maxlength="64" required></label><label>Full name<input name="name" maxlength="128" required></label><button>Add student</button></form>
+<h2>Registered students</h2>{% for s in students %}<form data-student class="student"><input aria-label="Student ID" name="student_id" value="{{ s.student_id }}" readonly><input aria-label="Full name" name="name" value="{{ s.name }}" maxlength="128" required><label><input type="checkbox" name="active" {% if s.active %}checked{% endif %}> Active</label><button>Save</button></form>{% endfor %}
+{% elif page=='settings' %}
+<p>All timers use seconds. Blank per-computer fields inherit global values. Saving replaces the selected scope's overrides.</p>
+<form id="settings"><label>Scope<select name="scope"><option value="*">Global defaults</option>{% for pc in pcs %}<option>{{ pc.computer_id }}</option>{% endfor %}</select></label>
+{% for key,value in defaults.items() %}<label>{{ key.replace('_',' ')|capitalize }}{% if key.startswith('auto_') %}<select name="{{ key }}"><option value="">Inherit</option><option value="true" {% if value %}selected{% endif %}>Enabled</option><option value="false" {% if not value %}selected{% endif %}>Disabled</option></select>{% else %}<input name="{{ key }}" type="number" min="1" max="86400" value="{{ value }}">{% endif %}</label>{% endfor %}<button>Save settings</button></form>
+<h2>Stored computer overrides</h2>{% for r in overrides %}<p>{{ r.scope }}: <code>{{ r.value }}</code></p>{% endfor %}
+{% elif page=='events' %}<p>Latest 300 operational events. Communication failures reach this log only when the client can reconnect.</p><table><tr><th>Time</th><th>Computer</th><th>Event</th><th>Detail</th></tr>{% for e in events %}<tr><td>{{ e.time|manila }}</td><td>{{ e.computer_id or 'Administrator' }}</td><td>{{ e.kind }}</td><td>{{ e.detail }}</td></tr>{% endfor %}</table>
+{% endif %}</main></body></html>

@@ -1,0 +1,16 @@
+.venv/
+.build-venv/
+build/
+*.spec
+.tools/
+__pycache__/
+.pytest_cache/
+*.pyc
+data/
+config/*.json
+!config/*.example.json
+*.sqlite*
+deploy/.env
+deploy/secrets/
+deploy/backups/
+dist/

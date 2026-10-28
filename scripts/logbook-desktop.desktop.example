@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Laboratory logbook
+Exec=/opt/lab-logbook/.venv/bin/python -m client --config /etc/lab-logbook/client.json
+Path=/opt/lab-logbook
+Terminal=false
+X-GNOME-Autostart-enabled=true

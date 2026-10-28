@@ -1,0 +1,7 @@
+{
+  "server_url": "http://127.0.0.1:5000",
+  "computer_id": "LAB-PC-01",
+  "machine_token": "PROVISION_LOCALLY_DO_NOT_USE_THIS_PLACEHOLDER",
+  "simulation": true,
+  "allow_loopback_http": true
+}

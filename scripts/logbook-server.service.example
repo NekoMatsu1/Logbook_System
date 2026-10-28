@@ -1,0 +1,14 @@
+[Unit]
+Description=Central laboratory logbook API and dashboard
+After=network-online.target
+
+[Service]
+User=logbook-server
+WorkingDirectory=/opt/lab-logbook
+EnvironmentFile=/etc/lab-logbook/server.env
+ExecStart=/opt/lab-logbook/.venv/bin/python -m server serve --database /var/lib/lab-logbook/logbook.sqlite
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

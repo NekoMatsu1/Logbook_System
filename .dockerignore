@@ -1,0 +1,7 @@
+*
+!requirements-server.txt
+!common.py
+!server/
+!server/**
+server/**/__pycache__/
+server/**/*.pyc

@@ -1,0 +1,15 @@
+[Unit]
+Description=Laboratory logbook no-user helper
+After=network-online.target systemd-logind.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/lab-logbook
+ExecStart=/opt/lab-logbook/.venv/bin/python -m client.helper --config /etc/lab-logbook/client.json
+Restart=on-failure
+RestartSec=5
+User=root
+
+[Install]
+WantedBy=multi-user.target
