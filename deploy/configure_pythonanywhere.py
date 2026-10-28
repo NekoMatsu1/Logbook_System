@@ -48,7 +48,7 @@ def main():
         client_secret=getpass.getpass('Google Web OAuth client secret (hidden): ').strip()
         if not client_id.endswith('.apps.googleusercontent.com') or not client_secret:
             parser.error('Google Web OAuth client credentials are required')
-    hostname=args.username+'.pythonanywhere.com'
+    hostname=args.username.lower()+'.pythonanywhere.com'
     database=home/'.local'/'share'/'lab-logbook'/'logbook.sqlite'
     database.parent.mkdir(parents=True,exist_ok=True,mode=0o700)
     configuration=dict(DATABASE=str(database),SECRET_KEY=secrets.token_hex(48),PRODUCTION=True,
