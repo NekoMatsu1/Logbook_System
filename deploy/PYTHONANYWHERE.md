@@ -1,4 +1,6 @@
-# Free hosting, remote owner sign-in, lab-only student access
+# Free hosting alternative: Google owner sign-in, lab-only student access
+
+This alternative keeps student access restricted to configured public lab networks and uses Google sign-in for the dashboard. It does not match the no-application-sign-in, administrator-IP-restricted dashboard requirement. For PCs at unrelated locations and a dashboard limited to one administrator public IP, use the [Linux VM deployment](README.md).
 
 This deployment preserves Flask + SQLite. It does not run Tkinter on the hosting service. Student clients remain installed on lab PCs. The application code is prepared and locally tested; no PythonAnywhere account has been connected and no live site has been provisioned in this session.
 

@@ -1,15 +1,15 @@
 {$LOGBOOK_DOMAIN} {
-    # Only installed-client endpoints are internet-reachable. No dashboard/static routes.
-    handle /api/* {
-        request_body {
-            max_size 16KB
-        }
-        reverse_proxy 127.0.0.1:5000 {
-            header_up X-Forwarded-For {remote_host}
-            header_up X-Forwarded-Proto {scheme}
-        }
-    }
-    handle {
-        respond "Private service" 403
-    }
+	@administrator remote_ip {$LOGBOOK_ADMIN_ADDRESS}
+	handle /api/* {
+		request_body {
+			max_size 16KB
+		}
+		reverse_proxy 127.0.0.1:5000
+	}
+	handle @administrator {
+		reverse_proxy 127.0.0.1:5000
+	}
+	handle {
+		respond "Administrator access is restricted to the designated computer" 403
+	}
 }

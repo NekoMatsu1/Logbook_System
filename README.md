@@ -15,7 +15,7 @@ The download is **Logbook-Windows-x64.zip**. It is a test version.
 
 You do not need to install Python for the Windows download. Keep the `_internal` folder beside the program. The **Code > Download ZIP** button gives you the source code, not the app.
 
-The app needs a running server. It cannot sign students in without a connection. See [how to set up another PC](DOWNLOAD.md).
+The app needs a running central server. It cannot sign students in without a connection. PCs can connect from different locations over the internet when the server is deployed with remote clients enabled; they do not need to share a LAN. The administrator dashboard remains restricted to the designated admin computer. See [internet deployment](deploy/README.md) and [how to set up another PC](DOWNLOAD.md).
 
 ## What it does
 
@@ -33,10 +33,12 @@ Before using it in a real lab, test it on the actual PCs. Server hosting, backup
 
 ## Guides
 
+- [Start with Oracle Cloud](deploy/ORACLE.md)
 - [Download and PC setup](DOWNLOAD.md)
 - [Full setup guide](SETUP.md)
 - [Test with a second PC](STUDENT-PC-TEST.md)
 - [Kiosk setup](KIOSK-SETUP.md)
+- [Internet server deployment](deploy/README.md)
 - [Server hosting](deploy/PYTHONANYWHERE.md)
 - [Deployment checks](DEPLOYMENT-READINESS.md)
 

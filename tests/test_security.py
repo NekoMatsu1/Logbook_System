@@ -26,6 +26,15 @@ def test_proxy_cannot_reach_private_admin_even_with_loopback_address(app):
     assert private.get('/admin/export.csv',headers={'X-Forwarded-For':'127.0.0.1','X-Forwarded-Proto':'https'}).status_code == 403
     assert private.get('/admin/overview',headers={'X-Forwarded-For':'10.0.0.5','X-Forwarded-Proto':'https'}).status_code == 403
 
+def test_remote_admin_is_limited_to_allowlisted_client_ip(app):
+    remote=create_app(dict(TESTING=True,DATABASE=app.config['DATABASE'],SECRET_KEY='x'*48,
+                           PRODUCTION=True,ADMIN_DIRECT_ONLY=False,ADMIN_ADDRESSES=['198.51.100.42'],
+                           TRUSTED_PROXY_ADDRESS='127.0.0.1')).test_client()
+    headers={'X-Forwarded-For':'198.51.100.42','X-Forwarded-Proto':'https'}
+    assert remote.get('/admin/overview',headers=headers).status_code==200
+    assert remote.get('/admin/overview',headers=headers,
+                      environ_overrides={'REMOTE_ADDR':'203.0.113.17'}).status_code==403
+
 @pytest.mark.parametrize('changes',[
     {'SECRET_KEY':'short'},
     {'ADMIN_DIRECT_ONLY':False},

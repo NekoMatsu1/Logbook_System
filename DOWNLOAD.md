@@ -12,6 +12,8 @@ Python, pip, Git and VS Code are not required for this Windows download. An admi
 
 The executable is unsigned. School policy may require administrator review or signing before it can run. Do not disable endpoint protections. Linux Mint users should follow the Python/X11 setup in README.md; this Windows ZIP does not run on Linux or macOS.
 
+For PCs at different locations, deploy the central service on an internet-reachable host and set `LOGBOOK_ALLOW_REMOTE_CLIENTS=1`. Keep that host running; the student PCs and the administrator's designated-IP-restricted dashboard then connect over HTTPS without sharing a LAN. Follow the [Linux VM deployment guide](deploy/README.md); the local second-PC checklist is only for a same-LAN test.
+
 ## Administrator: provision another PC
 
 On the **central server**, using its existing Python environment and database:

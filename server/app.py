@@ -37,6 +37,7 @@ def create_app(config=None):
                       GOOGLE_CLIENT_ID=os.getenv('LOGBOOK_GOOGLE_CLIENT_ID',''),
                       GOOGLE_CLIENT_SECRET=os.getenv('LOGBOOK_GOOGLE_CLIENT_SECRET',''),
                       GOOGLE_REDIRECT_URI=os.getenv('LOGBOOK_GOOGLE_REDIRECT_URI',''),
+                      ALLOW_REMOTE_CLIENTS=os.getenv('LOGBOOK_ALLOW_REMOTE_CLIENTS','0') == '1',
                       LAB_NETWORKS=[value.strip() for value in os.getenv('LOGBOOK_LAB_NETWORKS','').split(',') if value.strip()],
                       TRUSTED_HOSTS=os.getenv('LOGBOOK_TRUSTED_HOSTS', 'localhost,127.0.0.1,[::1]').split(','),
                       SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE='Strict',
@@ -44,17 +45,19 @@ def create_app(config=None):
                       MAX_CONTENT_LENGTH=16384, NOW=utcnow)
     if config:
         app.config.update(config)
+    trusted_proxy = app.config.get('TRUSTED_PROXY_ADDRESS') or os.getenv('LOGBOOK_TRUSTED_PROXY')
     if app.config['PRODUCTION']:
         if not secret and not (config or {}).get('SECRET_KEY'):
             raise RuntimeError('Production requires a persistent external session secret')
         if len(app.config['SECRET_KEY']) < 32:
             raise RuntimeError('Production session secret must contain at least 32 characters')
-        if app.config['ADMIN_AUTH_MODE'] == 'local' and not app.config['ADMIN_DIRECT_ONLY']:
-            raise RuntimeError('Production admin requires the private SSH access mode')
-        if app.config['ADMIN_AUTH_MODE'] == 'local' and (not app.config['ADMIN_ADDRESSES'] or any(not ipaddress.ip_address(address).is_loopback for address in app.config['ADMIN_ADDRESSES'])):
-            raise RuntimeError('Production administrator addresses must be loopback only')
+        if app.config['ADMIN_AUTH_MODE'] == 'local':
+            if app.config['ADMIN_DIRECT_ONLY']:
+                if not app.config['ADMIN_ADDRESSES'] or any(not ipaddress.ip_address(address).is_loopback for address in app.config['ADMIN_ADDRESSES']):
+                    raise RuntimeError('Direct-only administrator addresses must be loopback only')
+            elif not trusted_proxy or not app.config['ADMIN_ADDRESSES']:
+                raise RuntimeError('Remote administrator access requires a trusted proxy and an explicit IP allowlist')
     lab_networks = tuple(ipaddress.ip_network(value) for value in app.config['LAB_NETWORKS'])
-    trusted_proxy = app.config.get('TRUSTED_PROXY_ADDRESS') or os.getenv('LOGBOOK_TRUSTED_PROXY')
     if trusted_proxy:
         original = app.wsgi_app
         proxy = ProxyFix(original, x_for=1, x_proto=1, x_host=0, x_port=0, x_prefix=0)
@@ -115,7 +118,10 @@ def create_app(config=None):
                 address = ipaddress.ip_address(request.remote_addr or '')
             except ValueError:
                 abort(403)
-            if (app.config['PRODUCTION'] and not lab_networks) or (lab_networks and not any(address in network for network in lab_networks)):
+            if not app.config['ALLOW_REMOTE_CLIENTS'] and (
+                (app.config['PRODUCTION'] and not lab_networks)
+                or (lab_networks and not any(address in network for network in lab_networks))
+            ):
                 abort(403,'Student access is permitted only from the configured laboratory network')
             computer = request.headers.get('X-Computer-ID', '')
             token = request.headers.get('Authorization', '').removeprefix('Bearer ')

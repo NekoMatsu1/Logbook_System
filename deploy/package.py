@@ -8,7 +8,8 @@ def package(destination):
     files = [ROOT / 'common.py', ROOT / 'requirements-server.txt']
     files += [p for p in (ROOT / 'server').rglob('*') if p.is_file() and '__pycache__' not in p.parts and p.suffix != '.pyc']
     files += [ROOT / 'deploy' / name for name in (
-        'Dockerfile', 'compose.yaml', 'Caddyfile', '.env.example', 'prepare.py', 'README.md')]
+        'Dockerfile', 'compose.yaml', 'Caddyfile', '.env.example', 'prepare.py', 'README.md',
+        'configure_oracle.py', 'ORACLE.md')]
     files += [ROOT / '.dockerignore']
     destination = Path(destination)
     destination.parent.mkdir(parents=True, exist_ok=True)

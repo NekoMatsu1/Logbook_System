@@ -12,14 +12,14 @@ services:
     tmpfs: [/tmp]
     environment:
       LOGBOOK_PRODUCTION: '1'
-      LOGBOOK_ADMIN_DIRECT_ONLY: '1'
-      LOGBOOK_ADMIN_ADDRESSES: '127.0.0.1,::1'
+      LOGBOOK_ADMIN_DIRECT_ONLY: '0'
+      LOGBOOK_ADMIN_ADDRESSES: '${LOGBOOK_ADMIN_ADDRESS:?Set the administrator public IP address}'
       LOGBOOK_TRUSTED_PROXY: '127.0.0.1'
       LOGBOOK_TRUSTED_HOSTS: '${LOGBOOK_DOMAIN:?Set LOGBOOK_DOMAIN},localhost,127.0.0.1,[::1]'
       LOGBOOK_SECRET_FILE: /run/secrets/flask_secret
-      LOGBOOK_LAB_NETWORKS: '${LOGBOOK_LAB_NETWORKS:?Set the permitted lab public IP/CIDR}'
-      # Admin cookies exist only on SSH-forwarded HTTP loopback, never public HTTPS.
-      LOGBOOK_HTTPS: '0'
+      LOGBOOK_ALLOW_REMOTE_CLIENTS: '${LOGBOOK_ALLOW_REMOTE_CLIENTS:-0}'
+      LOGBOOK_LAB_NETWORKS: '${LOGBOOK_LAB_NETWORKS:-}'
+      LOGBOOK_HTTPS: '1'
     secrets: [flask_secret]
     volumes:
       - logbook_data:/app/data
@@ -37,6 +37,7 @@ services:
     restart: unless-stopped
     environment:
       LOGBOOK_DOMAIN: '${LOGBOOK_DOMAIN:?Set LOGBOOK_DOMAIN}'
+      LOGBOOK_ADMIN_ADDRESS: '${LOGBOOK_ADMIN_ADDRESS:?Set the administrator public IP address}'
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
