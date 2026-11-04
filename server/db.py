@@ -20,6 +20,8 @@ CREATE TABLE IF NOT EXISTS agent_runs(computer_id TEXT NOT NULL REFERENCES compu
  run_id TEXT NOT NULL, PRIMARY KEY(computer_id,run_id));
 CREATE TABLE IF NOT EXISTS events(id INTEGER PRIMARY KEY, time TEXT NOT NULL,
  computer_id TEXT, kind TEXT NOT NULL, detail TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS admin_login_attempts(address_hash TEXT NOT NULL, time REAL NOT NULL);
+CREATE INDEX IF NOT EXISTS admin_login_attempt_time ON admin_login_attempts(time);
 """
 
 def connect(path):

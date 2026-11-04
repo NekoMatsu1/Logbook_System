@@ -76,6 +76,36 @@ def test_state_browser_binding_and_expiry(google_app,clock):
     clock.advance(601)
     assert first.get('/auth/callback',base_url='https://localhost',query_string={'state':state,'code':'code'}).status_code==403
 
+
+def test_login_limit_survives_new_worker(google_app, clock):
+    app, _, _ = google_app
+    for _ in range(10):
+        assert app.test_client().get('/auth/login', base_url='https://localhost').status_code == 302
+    second = create_app(dict(app.config))
+    assert second.test_client().get('/auth/login', base_url='https://localhost').status_code == 429
+    clock.advance(61)
+    assert second.test_client().get('/auth/login', base_url='https://localhost').status_code == 302
+
+
+@pytest.mark.parametrize('path', ['/admin/overview', '/admin/records', '/admin/students',
+    '/admin/settings', '/admin/events', '/admin/export.csv'])
+def test_records_require_owner_login_even_from_old_allowed_ip(google_app, path):
+    app, _, _ = google_app
+    app.config['ADMIN_ADDRESSES'] = ['203.0.113.9']
+    web = app.test_client()
+    response = web.get(path, base_url='https://localhost', environ_overrides={'REMOTE_ADDR':'203.0.113.9'})
+    assert response.status_code in (401, 403)
+    assert response.headers['Cache-Control'] == 'no-store'
+    assert web.get(path, base_url='https://localhost', headers={
+        'X-Computer-ID':'LAB-PC-01', 'Authorization':'Bearer test-token'}).status_code == 403
+
+
+@pytest.mark.parametrize('path', ['/static/server.json', '/static/logbook.sqlite',
+    '/.config/lab-logbook/server.json', '/data/logbook.sqlite', '/config/client.json'])
+def test_private_files_are_not_download_routes(google_app, path):
+    app, _, _ = google_app
+    assert app.test_client().get(path, base_url='https://localhost').status_code == 404
+
 @pytest.mark.parametrize('change',[
     {'email':'student@gmail.com'}, {'email_verified':False}, {'nonce':'wrong'}, {'sub':''},
 ])

@@ -4,8 +4,6 @@ import hashlib
 import hmac
 import secrets
 import time
-import threading
-from collections import OrderedDict
 from functools import wraps
 from urllib.parse import urlencode
 
@@ -29,8 +27,6 @@ def verify_google_token(token, audience, access_token=None):
 
 def install_admin_auth(app):
     mode = app.config['ADMIN_AUTH_MODE']
-    attempts=OrderedDict()
-    attempts_lock=threading.Lock()
     if mode not in ('local', 'google'):
         raise RuntimeError('ADMIN_AUTH_MODE must be local or google')
     if mode == 'google':
@@ -70,16 +66,17 @@ def install_admin_auth(app):
             abort(404)
         if not request.is_secure:
             abort(403)
-        with attempts_lock:
-            stamp=time.monotonic()
-            address=request.remote_addr
-            recent=[value for value in attempts.pop(address,[]) if stamp-value<60]
-            if len(recent)>=10:
-                attempts[address]=recent
+        # Share limits across WSGI workers and reloads; never store raw client IPs here.
+        with g.db:
+            g.db.execute('BEGIN IMMEDIATE')
+            stamp = now()
+            address = digest(request.remote_addr or '')
+            g.db.execute('DELETE FROM admin_login_attempts WHERE time<=?', (stamp-60,))
+            count = g.db.execute('SELECT COUNT(*) FROM admin_login_attempts WHERE address_hash=?',
+                                 (address,)).fetchone()[0]
+            if count >= 10:
                 abort(429,'Too many sign-in attempts; wait one minute')
-            attempts[address]=recent+[stamp]
-            while len(attempts)>2048:
-                attempts.popitem(last=False)
+            g.db.execute('INSERT INTO admin_login_attempts VALUES(?,?)', (address, stamp))
         state, nonce, verifier = (secrets.token_urlsafe(48) for _ in range(3))
         browser = session.setdefault('oidc_browser',secrets.token_urlsafe(48))
         challenge = base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).rstrip(b'=').decode()

@@ -71,6 +71,10 @@ The admin allowlist checks a public IP, not a device. Other devices sharing the 
 
 ## Keep it running
 
+To replace IP restrictions on an existing server with owner-only Google login,
+follow [Google admin setup](GOOGLE-ADMIN.md). This needs one reload during setup;
+normal logins then work across networks without changing the allowed IP.
+
 - Extend the web app before its monthly expiry.
 - Use SQLite's backup API to make consistent backups. Keep a protected copy outside the hosting account and test a restore.
 - Keep private settings, records, and client credentials out of public downloads.
