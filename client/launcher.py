@@ -33,10 +33,15 @@ def self_test(output):
 
 
 def main(argv=None):
+    arguments = list(sys.argv[1:] if argv is None else argv)
+    if arguments[:1] == ['--warning']:
+        from .kiosk_warning import main as warning_main
+        return warning_main(arguments[1:])
     parser = argparse.ArgumentParser(description='Laboratory student logbook')
     parser.add_argument('--config', type=Path, help='Private configuration provisioned for this PC')
     parser.add_argument('--self-test', type=Path, help=argparse.SUPPRESS)
-    args = parser.parse_args(argv)
+    parser.add_argument('--shell-child', action='store_true', help=argparse.SUPPRESS)
+    args = parser.parse_args(arguments)
     if args.self_test:
         self_test(args.self_test)
         return 0
@@ -54,18 +59,34 @@ def main(argv=None):
             if not selected:
                 return 0
             config = Path(selected)
-        from .__main__ import main as desktop_main
-        desktop_main(['--config', str(config.resolve())],root=root)
+        config_path = str(config.resolve())
+        if args.shell_child:
+            from .__main__ import main as desktop_main
+            desktop_main(['--config', config_path, '--shell-child'], root=root)
+        else:
+            root.destroy()
+            root = None
+            from .kiosk import main as kiosk_main
+            kiosk_main(['--config', config_path])
     except Exception:
         # Do not expose credentials or private config contents in a startup error.
-        messagebox.showerror('Logbook could not start',
-                             'Check that no other Logbook is running and that this PC has a valid, '
-                             'writable configuration. Windows-protected configurations work only on '
-                             'the PC where they were first opened. Ask your administrator for help.', parent=root)
+        error_root = root or tk.Tk()
+        if root is None:
+            error_root.withdraw()
+        try:
+            messagebox.showerror('Logbook could not start',
+                                 'Check that no other Logbook is running and that this PC has a valid, '
+                                 'writable configuration. Windows-protected configurations work only on '
+                                 'the PC where they were first opened. Ask your administrator for help.',
+                                 parent=error_root)
+        finally:
+            if root is None:
+                error_root.destroy()
         return 1
     finally:
-        try:
-            root.destroy()
-        except tk.TclError:
-            pass  # The desktop's Close handler may already have destroyed it.
+        if root is not None:
+            try:
+                root.destroy()
+            except tk.TclError:
+                pass  # The desktop's Close handler may already have destroyed it.
     return 0

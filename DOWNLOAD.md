@@ -8,17 +8,17 @@
 4. Ask the laboratory administrator for a **new configuration for this PC**. Put it in `Logbook\config\client.json`, then double-click **Logbook.exe**. You can also select the JSON when prompted.
 5. Confirm the window shows the correct computer ID and **SIMULATION**. Complete the second-PC checklist below before enabling real OS operations.
 
+The app starts through the supervised Logbook sign-in flow. **A normal portable launch or simulation does not lock Windows or prevent access to other apps.** To require Logbook authorization before the shared account gets its normal desktop and installed apps, an administrator must deploy the supported OS-managed kiosk shell described in [KIOSK-SETUP.md](KIOSK-SETUP.md). Windows shell enforcement requires Enterprise, Education, or IoT Enterprise; Linux requires the configured LightDM/Cinnamon X11 session. Do not treat a fullscreen window, startup shortcut, or the simulation as whole-PC access control.
+
 ## Student logout
 
-When an inactivity warning appears, click **Yes, I'm still here** before the countdown ends to keep working. Mouse movement, typing, and other clicks will not dismiss it. If you do nothing, automatic logout follows. Interactive shutdown warnings also need that button to cancel.
+In simulation, the session window still has a **Log out** button. Closing that
+window minimizes it; reopen it from the taskbar. Manual logout needs the server
+to save the ending, not administrator approval.
 
-After login, the portable Windows app shows a session window with a **Log out** button. Click it and confirm. Closing the session window now minimizes it; click its taskbar button to reopen it.
+In an enforced kiosk installation, use the normal Windows or Cinnamon **Sign out / Log out** control to end your computer session. This closes open applications, so save your work first. The Logbook agent records a confirmed OS sign-out when the operating system reports it; after a crash or network failure, the end time may remain unknown rather than being guessed.
 
-The server must confirm the session ending before manual logout proceeds. If the connection fails or the server is too old, the session stays active and the app asks you to retry. In simulation mode, logout ends the logbook session while Windows stays signed in. In live mode, it also requests OS sign-out, which closes applications; save your work first.
-
-No admin approval is needed to end a student's own session. Server confirmation means the record was saved. If a session is already marked interrupted, the app lets the student leave while preserving its unknown end time. It does not invent a completed record.
-
-**Existing PythonAnywhere server:** manual logout needs the updated server too. In its Bash console, run `cd ~/lab-logbook && git pull --ff-only`, then click **Web > Reload**. This updates code without replacing private settings or the database. Do this before using the new client. Native Windows kiosk sessions still use Windows sign-out; the new button is in the portable desktop client's session window.
+The portable download and simulation do not enforce whole-PC access or issue real OS sign-out. Actual sign-in gating requires the dedicated OS-managed kiosk deployment above.
 
 Python, pip, Git and VS Code are not required for this Windows download. An administrator must first run the central server and provision each client. This is a networked laboratory client; downloading it does not create a hosted server or allow offline sign-in.
 

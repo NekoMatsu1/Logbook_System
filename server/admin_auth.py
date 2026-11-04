@@ -1,4 +1,4 @@
-"""Passwordless admin identity: Google authorization-code flow + server-side sessions."""
+"""Admin identity with server-side sessions; machine credentials never grant access."""
 import base64
 import hashlib
 import hmac
@@ -9,6 +9,7 @@ from urllib.parse import urlencode
 
 import requests
 from flask import abort, g, jsonify, redirect, render_template, request, session
+from werkzeug.security import check_password_hash
 
 def digest(value):
     return hashlib.sha256(value.encode()).hexdigest()
@@ -27,8 +28,14 @@ def verify_google_token(token, audience, access_token=None):
 
 def install_admin_auth(app):
     mode = app.config['ADMIN_AUTH_MODE']
-    if mode not in ('local', 'google'):
-        raise RuntimeError('ADMIN_AUTH_MODE must be local or google')
+    if mode not in ('local', 'google', 'password'):
+        raise RuntimeError('ADMIN_AUTH_MODE must be local, google or password')
+    if mode == 'password':
+        if not app.config.get('ADMIN_USERNAME') or not app.config.get('ADMIN_PASSWORD_HASH', '').startswith('scrypt:32768:8:1$'):
+            raise RuntimeError('Password admin access requires an owner username and a configured scrypt password hash')
+        if not app.config['SESSION_COOKIE_SECURE']:
+            raise RuntimeError('Password administrator access requires Secure cookies')
+        app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
     if mode == 'google':
         required = ('GOOGLE_CLIENT_ID','GOOGLE_CLIENT_SECRET','GOOGLE_REDIRECT_URI','ADMIN_EMAIL')
         if any(not app.config.get(key) for key in required):
@@ -50,6 +57,9 @@ def install_admin_auth(app):
         token = session.get('admin_session')
         if not isinstance(token, str):
             return False
+        if mode == 'password':
+            return g.db.execute('SELECT 1 FROM admin_sessions WHERE token_hash=? AND subject=? AND expires_at>?',
+                                (digest(token), password_subject(), now())).fetchone() is not None
         row = g.db.execute('SELECT s.subject FROM admin_sessions s JOIN admin_identities i ON i.subject=s.subject '
                            'WHERE s.token_hash=? AND s.expires_at>? AND i.email=?',
                            (digest(token),now(),app.config['ADMIN_EMAIL'].lower())).fetchone()
@@ -58,15 +68,15 @@ def install_admin_auth(app):
     def network_allowed():
         return not (app.config['ADMIN_DIRECT_ONLY'] and request.environ.get('logbook.from_proxy')) and request.remote_addr in app.config['ADMIN_ADDRESSES']
 
-    @app.get('/auth/login')
-    def login():
-        if request.headers.get('Authorization') or request.headers.get('X-Computer-ID'):
-            abort(403)
-        if mode != 'google':
-            abort(404)
-        if not request.is_secure:
-            abort(403)
-        # Share limits across WSGI workers and reloads; never store raw client IPs here.
+    def password_subject():
+        # Rotating either credential invalidates every previous password session.
+        return 'password:' + digest(app.config['ADMIN_USERNAME']+'\0'+app.config['ADMIN_PASSWORD_HASH'])
+
+    def login_page(error=None):
+        session.setdefault('login_csrf', secrets.token_hex(32))
+        return render_template('admin_login.html', error=error)
+
+    def throttle():
         with g.db:
             g.db.execute('BEGIN IMMEDIATE')
             stamp = now()
@@ -77,6 +87,48 @@ def install_admin_auth(app):
             if count >= 10:
                 abort(429,'Too many sign-in attempts; wait one minute')
             g.db.execute('INSERT INTO admin_login_attempts VALUES(?,?)', (address, stamp))
+
+    @app.route('/auth/login', methods=['GET', 'POST'])
+    def login():
+        if request.headers.get('Authorization') or request.headers.get('X-Computer-ID'):
+            abort(403)
+        if mode not in ('google', 'password'):
+            abort(404)
+        if not request.is_secure:
+            abort(403)
+        if mode == 'password':
+            if request.method == 'GET':
+                return login_page()
+            from urllib.parse import urlsplit
+            origin = request.headers.get('Origin')
+            if origin:
+                try:
+                    parsed = urlsplit(origin)
+                except ValueError:
+                    abort(403)
+                if (parsed.scheme, parsed.netloc) != (request.scheme, request.host):
+                    abort(403)
+            expected, supplied = session.get('login_csrf', ''), request.form.get('csrf', '')
+            if request.headers.get('Sec-Fetch-Site') == 'cross-site' or not expected or not hmac.compare_digest(expected.encode(), supplied.encode()):
+                abort(403,'Sign-in form expired; reload it')
+            throttle()
+            username, password = request.form.get('username',''), request.form.get('password','')
+            if len(username)>128 or len(password)>1024:
+                return login_page('Username or password is incorrect.'), 401
+            valid = check_password_hash(app.config['ADMIN_PASSWORD_HASH'], password)
+            if not (hmac.compare_digest(username.encode(), app.config['ADMIN_USERNAME'].encode()) and valid):
+                return login_page('Username or password is incorrect.'), 401
+            token = secrets.token_urlsafe(48)
+            with g.db:
+                g.db.execute('DELETE FROM admin_sessions WHERE expires_at<=?', (now(),))
+                g.db.execute('INSERT INTO admin_sessions VALUES(?,?,?)', (digest(token), password_subject(), now()+3600))
+                audit('admin_signin','Password administrator signed in')
+            session.clear()
+            session.update(admin_session=token,csrf=secrets.token_hex(32))
+            return redirect('/admin/overview')
+        if request.method != 'GET':
+            abort(405)
+        throttle()
         state, nonce, verifier = (secrets.token_urlsafe(48) for _ in range(3))
         browser = session.setdefault('oidc_browser',secrets.token_urlsafe(48))
         challenge = base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).rstrip(b'=').decode()
@@ -144,26 +196,26 @@ def install_admin_auth(app):
     @app.get('/auth/status')
     def status():
         # No identity/email/session information exposed.
-        return jsonify(authenticated=authorized() if mode == 'google' else network_allowed())
+        return jsonify(authenticated=authorized() if mode in ('google','password') else network_allowed())
 
     def admin(fn):
         @wraps(fn)
         def guarded(*args,**kwargs):
             if request.headers.get('Authorization') or request.headers.get('X-Computer-ID'):
                 abort(403,'Machine credentials cannot access administrator routes')
-            if mode == 'google':
+            if mode in ('google','password'):
                 if not request.is_secure:
                     abort(403)
                 if not authorized():
                     if request.method == 'GET' and request.path != '/admin/export.csv':
-                        return render_template('admin_login.html'),401
+                        return login_page(),401
                     abort(403,'Administrator sign-in required')
             elif not network_allowed():
                 abort(403,'Administrator access requires the designated private connection')
             # An authenticated Google callback may redirect through a cross-site GET chain.
             # Read-only HTML navigation remains same-origin readable only; writes/exports stay blocked.
             if request.headers.get('Sec-Fetch-Site') == 'cross-site' and (
-                mode != 'google' or request.method != 'GET' or request.path == '/admin/export.csv'
+                mode not in ('google','password') or request.method != 'GET' or request.path == '/admin/export.csv'
             ):
                 abort(403,'Cross-site administrator requests are forbidden')
             if request.method != 'GET':

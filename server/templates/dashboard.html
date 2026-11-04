@@ -4,9 +4,10 @@
 <link rel="stylesheet" href="{{ url_for('static',filename='style.css') }}"><script defer src="{{ url_for('static',filename='dashboard.js') }}"></script></head>
 <body><header><div class="brand"><div class="brand-mark" aria-hidden="true">LB</div><strong>Lab Logbook</strong></div><span>Administrator · Asia/Manila</span></header>
 <nav>{% for item in ['overview','records','students','settings','events'] %}<a {% if page==item %}aria-current="page"{% endif %} href="/admin/{{ item }}">{{ item|capitalize }}</a>{% endfor %}</nav>
-{% if config.ADMIN_AUTH_MODE == 'google' %}<form method="post" action="/auth/logout"><input type="hidden" name="csrf" value="{{ session.csrf }}"><button>Sign out administrator</button></form>{% endif %}
+{% if config.ADMIN_AUTH_MODE in ('google','password') %}<form class="admin-signout" method="post" action="/auth/logout"><input type="hidden" name="csrf" value="{{ session.csrf }}"><button>Sign out administrator</button></form>{% endif %}
 <main><p class="eyebrow">Computer laboratory</p><h1>{{ page|capitalize }}</h1><p id="message" role="status"></p>
 {% if page=='overview' %}
+<p id="monitor-status" role="status">Monitoring connected. Updates every 10 seconds.</p>
 <div class="cards">{% for state in ['available','in-use','offline'] %}<article><b>{{ pcs|selectattr('status','equalto',state)|list|length }}</b><span>{{ state|capitalize }} computers</span></article>{% endfor %}<article><b>{{ active|length }}</b><span>Central active records</span></article></div>
 <p>Availability is based on agent heartbeats. An offline computer may still have an unfinished session. Refreshes every 10 seconds.</p>
 <h2>Laboratory computers</h2><div class="scroll"><table><tr><th>Computer</th><th>Status</th><th>Last connection</th><th>Student</th></tr>{% for pc in pcs %}<tr><td>{{ pc.computer_id }}</td><td><span class="status status-{{ pc.status }}">{{ pc.status }}</span></td><td>{{ pc.last_seen|manila }}</td><td>{% for s in active if s.computer_id==pc.computer_id %}{{ s.student_name }} ({{ s.student_id }}){% endfor %}</td></tr>{% else %}<tr><td colspan="4" class="empty">No computers connected yet. Connected lab PCs will appear here.</td></tr>{% endfor %}</table></div>

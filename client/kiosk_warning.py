@@ -5,12 +5,14 @@ import time
 import tkinter as tk
 from tkinter import ttk
 
-def main():
+def main(argv=None):
     parser=argparse.ArgumentParser()
     parser.add_argument('--seconds',type=int,required=True)
     parser.add_argument('--simulation',action='store_true')
     parser.add_argument('--confirmation-token',required=True)
-    args=parser.parse_args()
+    args=parser.parse_args(argv)
+    from .gate import _attach_windows_pipes
+    _attach_windows_pipes(('stdout',))
     root=tk.Tk()
     root.title('Laboratory inactivity warning')
     root.attributes('-topmost',True)

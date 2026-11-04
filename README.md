@@ -25,8 +25,8 @@ The server needs monthly renewal in PythonAnywhere's Web tab. It can keep runnin
 - Shows the student name before sign-in.
 - Shows idle warnings and supports automatic sign-out.
 - Warning countdowns need **Yes, I'm still here** to cancel. Mouse movement and unrelated clicks do not dismiss them.
-- Lets students click **Log out** in the portable app's session window. Closing that window minimizes it; reopen it from the taskbar.
-- Student logout does not need admin approval. The server must save the ending; a connection or version error is shown instead of a false success.
+- In simulation, students can use **Log out** in the session window without admin approval. A managed student can use the desktop's OS sign-out control; the agent records confirmed OS sign-out when available.
+- Students use a shared OS account; the supervised Logbook flow records their own sign-in. Enforcing sign-in before access to the normal desktop requires a separately installed OS-managed kiosk shell; the portable app and simulation do not lock down the PC.
 - Gives the admin a dashboard, filters, and CSV exports.
 - Runs on Windows 10/11. Linux Mint X11 setup is also available.
 

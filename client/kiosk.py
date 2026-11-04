@@ -16,6 +16,20 @@ from .gate import PREFIX
 from .instance import acquire
 from .platforms.desktop_gate import load_gate
 
+def child_command(config_path):
+    if getattr(sys, 'frozen', False):
+        return [sys.executable, '--shell-child', '--config', config_path]
+    return [sys.executable, '-m', 'client', '--config', config_path, '--shell-child']
+
+
+def warning_command(seconds, token, simulation):
+    command = ([sys.executable, '--warning'] if getattr(sys, 'frozen', False)
+               else [sys.executable, '-m', 'client.kiosk_warning'])
+    command += ['--seconds', str(seconds), '--confirmation-token', token]
+    if simulation:
+        command.append('--simulation')
+    return command
+
 class Supervisor:
     def __init__(self,api,gate):
         self.api,self.gate=api,gate
@@ -31,7 +45,7 @@ class Supervisor:
             self.gate.lock()
             self.active=self.requested=None
             self.run_id=message.get('run_id')
-        elif event=='grant' and message.get('run_id')==self.run_id:
+        elif event=='grant' and self.run_id and message.get('run_id')==self.run_id:
             key=message.get('session_id')
             if isinstance(key,str) and key and len(key)<=128:
                 self.requested=key
@@ -63,10 +77,10 @@ class Supervisor:
             return dict(event='confirm_presence',session_id=self.active,run_id=self.run_id)
         return None
 
-def main():
+def main(argv=None):
     parser=argparse.ArgumentParser()
     parser.add_argument('--config',default='config/client.json')
-    args=parser.parse_args()
+    args=parser.parse_args(argv)
     config_path=str(Path(args.config).resolve())
     config=load_config(config_path)
     simulation=config.get('simulation',True)
@@ -82,7 +96,7 @@ def main():
     child=warning=None
     last_retry=0
     def launch():
-        process=subprocess.Popen([sys.executable,'-m','client','--config',config_path,'--shell-child'],
+        process=subprocess.Popen(child_command(config_path),
                                  stdin=subprocess.PIPE,stdout=subprocess.PIPE,text=True,encoding='utf-8',bufsize=1,**gate.child_options())
         def reader():
             for line in process.stdout:
@@ -137,8 +151,7 @@ def main():
                 seconds=display.get('seconds')
                 if isinstance(seconds,int) and 0<=seconds<=86400:
                     token=secrets.token_hex(24)
-                    command=[sys.executable,'-m','client.kiosk_warning','--seconds',str(seconds),'--confirmation-token',token]
-                    if simulation: command.append('--simulation')
+                    command=warning_command(seconds,token,simulation)
                     warning=subprocess.Popen(command,stdout=subprocess.PIPE,text=True,encoding='utf-8',**gate.warning_options())
                     def read_confirmation(process,expected,key,run):
                         for line in process.stdout:

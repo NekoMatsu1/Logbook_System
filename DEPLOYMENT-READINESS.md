@@ -2,6 +2,11 @@
 
 ## Functional audit (2026-10-29)
 
+Update (2026-11-04): password-based administrator sessions and monitoring retry
+are implemented; hosted activation still needs private password setup and one
+reload. See [OPERATIONS.md](OPERATIONS.md). The portable simulation does not
+enforce Windows access. Actual kiosk installation/acceptance remains required.
+
 - Full local suite, including GUI workflows: **114 passed**. Dependency, Python compilation, dashboard JavaScript, PowerShell installer, and Linux shell syntax checks passed.
 - [Clean build runners](https://github.com/NekoMatsu1/Logbook_System/actions/runs/40755814061): **114 passed on Windows; 113 passed and 1 Windows-only test skipped on Linux**. The Windows runtime ZIP was built, extracted, and smoke-tested.
 - Inactivity and interactive shutdown warnings now require **Yes, I'm still here** before the deadline. Mouse movement, typing, unrelated clicks, and form focus do not cancel them. Timer and GUI tests exercise acknowledgement and expiry, including the supervised warning protocol.
@@ -44,7 +49,7 @@ The assessment below includes earlier development results. Statements about unav
 | Requirement | Evidence / remaining work |
 | --- | --- |
 | Python, Tkinter, Flask, SQLite, HTML/CSS/JS | Implemented; no replacement stack or unrelated reservation/billing/remote-screen features. |
-| Register ID and name once; preserve leading zeros; ID-only login and name confirmation | API and Tk integration tests pass. No student password. The portable client now has confirmed manual logout. |
+| Require student identification before normal desktop access | Packaged/source entry points now start the supervisor; the native OS shell installer is still required for actual whole-PC enforcement. The lab administrator must validate kiosk behavior and recovery on the target OS. |
 | Central records only; reject offline signup/login | Implemented. Machine configuration stores credentials, not student/session records. |
 | One active session per PC; idempotency; UTC/Manila; historical names | Transactional database and API tests pass. Interrupted sessions retain unknown end times. |
 | Activity and shutdown timers, cancellation, identification pause, configurable defaults | Fake-clock and Tk tests pass. Desktop activity monitoring implemented for Windows and Mint X11; actual Mint behavior untested. |

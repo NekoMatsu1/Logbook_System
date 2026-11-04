@@ -32,18 +32,18 @@ def test_download_contains_runtime_and_placeholder_without_local_credentials(tmp
 def test_explicit_config_is_resolved_from_caller_directory(tmp_path, monkeypatch):
     from types import SimpleNamespace
     import client.__main__ as desktop
+    import client.kiosk as kiosk
     received = []
     shared_root=SimpleNamespace(withdraw=lambda:None,destroy=lambda:None)
     monkeypatch.setattr(launcher.tk,'Tk',lambda:shared_root)
-    monkeypatch.setattr(desktop, 'main', lambda args,root=None: received.append((args,root)))
+    monkeypatch.setattr(kiosk, 'main', lambda args: received.append(args))
     monkeypatch.chdir(tmp_path)
     assert launcher.main(['--config', 'private.json']) == 0
-    assert received == [(['--config', str((tmp_path / 'private.json').resolve())],shared_root)]
-
+    assert received == [['--config', str((tmp_path / 'private.json').resolve())]]
 
 def test_first_run_picker_reuses_one_tk_root(tmp_path,monkeypatch):
     from types import SimpleNamespace
-    import client.__main__ as desktop
+    import client.kiosk as kiosk
     roots=[]
     received=[]
     def create_root():
@@ -54,6 +54,18 @@ def test_first_run_picker_reuses_one_tk_root(tmp_path,monkeypatch):
     monkeypatch.setattr(launcher,'default_config',lambda:tmp_path/'missing.json')
     monkeypatch.setattr(launcher.messagebox,'showinfo',lambda *args,**kwargs:None)
     monkeypatch.setattr(launcher.filedialog,'askopenfilename',lambda **kwargs:str(tmp_path/'selected.json'))
-    monkeypatch.setattr(desktop,'main',lambda args,root=None:received.append(root))
+    monkeypatch.setattr(kiosk,'main',lambda args:received.append(args))
     assert launcher.main([])==0
-    assert len(roots)==1 and received==roots
+    assert len(roots)==1
+    assert received==[['--config',str((tmp_path/'selected.json').resolve())]]
+
+def test_shell_child_runs_desktop_without_starting_another_supervisor(monkeypatch):
+    from types import SimpleNamespace
+    import client.__main__ as desktop
+    received=[]
+    root=SimpleNamespace(withdraw=lambda:None,destroy=lambda:None)
+    monkeypatch.setattr(launcher.tk,'Tk',lambda:root)
+    monkeypatch.setattr(launcher,'default_config',lambda:Path('config/client.json'))
+    monkeypatch.setattr(desktop,'main',lambda args,root=None:received.append((args,root)))
+    assert launcher.main(['--shell-child'])==0
+    assert received==[(['--config',str(Path('config/client.json').resolve()),'--shell-child'],root)]

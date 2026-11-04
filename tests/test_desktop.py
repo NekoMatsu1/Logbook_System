@@ -76,6 +76,7 @@ def test_tk_registration_login_and_simulated_logout(app,clock,monkeypatch,gated,
             assert link.granted==(agent.session_id,agent.run_id)
             link.messages.append(dict(event='desktop_open',session_id=agent.session_id,run_id=agent.run_id))
             pump_until(lambda:root.state()=='withdrawn')
+            assert agent.logout_button.cget('text') == 'Log out'
         if manual:
             if not gated:
                 assert agent.logout_button.cget('text') == 'Log out'

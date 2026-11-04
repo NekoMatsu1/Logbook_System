@@ -9,7 +9,7 @@ def package(destination):
     destination.parent.mkdir(parents=True,exist_ok=True)
     files=[ROOT/'common.py',ROOT/'requirements-server.txt',ROOT/'KIOSK-SETUP.md',ROOT/'BACKUPS.md']
     files += [path for path in (ROOT/'server').rglob('*') if path.is_file() and '__pycache__' not in path.parts and path.suffix!='.pyc']
-    files += [ROOT/'deploy'/name for name in ('pythonanywhere_wsgi.py','configure_pythonanywhere.py','enable_google_admin.py','PYTHONANYWHERE.md','GOOGLE-ADMIN.md')]
+    files += [ROOT/'deploy'/name for name in ('pythonanywhere_wsgi.py','configure_pythonanywhere.py','enable_google_admin.py','enable_password_admin.py','PYTHONANYWHERE.md','GOOGLE-ADMIN.md','PASSWORD-ADMIN.md')]
     with ZipFile(destination,'w',ZIP_DEFLATED) as archive:
         for path in sorted(files): archive.write(path,path.relative_to(ROOT).as_posix())
     return destination

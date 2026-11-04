@@ -2,13 +2,17 @@ Portable laboratory logbook client for controlled testing on Windows 10/11 x64.
 
 New in this release:
 
+- Optional admin password login replaces changing IP allowlists. Set it privately with `python -m deploy.enable_password_admin` in PythonAnywhere, then reload once. No Google or authenticator app is needed.
+- Monitoring updates without a full page reload, marks connection loss and retries automatically.
+- Fixed packaged supervisor/child/warning launch paths and added read-only Windows kiosk setup checks. Desktop restriction still needs a supported OS-managed installation; simulation does not lock Windows.
+
 - Students can log out without admin approval, or be logged out after the inactivity warning. Closing the session window still minimizes it.
 - Inactivity and interactive shutdown warnings require **Yes, I'm still here**. Mouse movement, typing, and random clicks no longer cancel them. Confirmation at or after the deadline cannot revive a session.
 - Manual logout now explains server/version failures and handles already-interrupted records without making up an end time.
 - The server rejects backward logout timestamps instead of silently storing a zero duration.
 - Added verified SQLite backups and tests for restoration, concurrent logout retries, permissions, and fractional record values. Failed PC setup-file creation now rolls back enrollment.
 - First-run configuration and the desktop share one Tk root to avoid repeated GUI initialization.
-- The existing layout is kept; the minimal slate/teal UI direction is recorded for the next design pass.
+- The dashboard uses a slate/teal theme, clearer tables and status badges.
 
 **Update the server before using this client:** in the PythonAnywhere Bash console, run `cd ~/lab-logbook && git pull --ff-only`, then click **Web > Reload**. Existing settings and records are preserved. Older servers reject the new manual logout reasons.
 

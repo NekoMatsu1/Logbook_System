@@ -1,13 +1,36 @@
 """Private child-to-supervisor protocol; no student names or input contents."""
 import json
+import os
 import sys
 import queue
 import threading
 
 PREFIX='LOGBOOK_GATE '
 
+def _attach_windows_pipes(streams=('stdin','stdout')):
+    if sys.platform != 'win32' or all(getattr(sys, name) is not None for name in streams):
+        return
+    import ctypes
+    import msvcrt
+
+    kernel = ctypes.WinDLL('kernel32', use_last_error=True)
+    kernel.GetStdHandle.argtypes = [ctypes.c_ulong]
+    kernel.GetStdHandle.restype = ctypes.c_void_p
+    for name, handle_id, mode, flags in (
+        ('stdin', -10, 'r', os.O_RDONLY),
+        ('stdout', -11, 'w', os.O_WRONLY),
+    ):
+        if name not in streams or getattr(sys, name) is not None:
+            continue
+        handle = kernel.GetStdHandle(handle_id)
+        if not handle or handle == ctypes.c_void_p(-1).value:
+            raise OSError(f'Windows {name} pipe is unavailable')
+        descriptor = msvcrt.open_osfhandle(handle, flags)
+        setattr(sys, name, os.fdopen(descriptor, mode, encoding='utf-8', buffering=1))
+
 class ShellLink:
     def __init__(self):
+        _attach_windows_pipes()
         self.last_warning=None
         self.incoming=queue.Queue()
         def read():

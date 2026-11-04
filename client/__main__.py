@@ -346,6 +346,8 @@ class Desktop:
                     self.confirm_presence()
                 if message.get('event')=='desktop_open' and message.get('session_id')==self.session_id and message.get('run_id')==self.run_id:
                     self.root.withdraw()
+                    if self.adapter.simulation:
+                        self.show_session_window()
         try:
             while True:
                 callback,result = self.results.get_nowait()
@@ -400,14 +402,15 @@ def main(argv=None, root=None):
     parser.add_argument('--shell-child',action='store_true',help=argparse.SUPPRESS)
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO,format='%(asctime)s %(levelname)s %(message)s')
+    if not args.shell_child:
+        from .kiosk import main as kiosk_main
+        kiosk_main(['--config', args.config])
+        return
     config = load_config(args.config)
     instance_lock = acquire()
     root = root if root is not None else tk.Tk()
-    if args.shell_child:
-        from .gate import ShellLink
-        Desktop(root,config,gate=ShellLink())
-    else:
-        Desktop(root,config)
+    from .gate import ShellLink
+    Desktop(root,config,gate=ShellLink())
     root.deiconify()
     root.mainloop()
 

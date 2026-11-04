@@ -16,6 +16,10 @@ The supervisor starts locked and verifies `/api/sessions/<id>` for the same mach
 
 ## Windows 10/11 enforcement
 
+Before installation, run `scripts/check-windows-kiosk.ps1 -LabUser 'COMPUTERNAME\LabStudent'`
+on the actual target PC. This read-only check reports simulation, edition and
+managed-shell problems. A downloaded app alone cannot enforce desktop sign-in.
+
 The enforced installer uses Microsoft's **Shell Launcher**, available on **Enterprise, Education and IoT Enterprise** editions. Windows Home/Pro can run the student prototype but this installer refuses to claim enforced shell support there. Do not substitute a startup shortcut/fullscreen window and call it secure. [Microsoft edition and security requirements](https://learn.microsoft.com/en-us/windows/configuration/shell-launcher/).
 
 1. Use a dedicated lab PC or disposable VM with a separate administrator recovery account. Create a **standard shared lab account**, not the laptop owner's account. Students use IDs in the app, not administrator/SSH/provider credentials.

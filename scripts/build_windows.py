@@ -4,9 +4,19 @@ from importlib.metadata import distribution
 from pathlib import Path
 import subprocess
 import sys
+import sysconfig
 from zipfile import ZipFile, ZIP_DEFLATED
 
 ROOT = Path(__file__).resolve().parent.parent
+
+
+def require_standard_windows_python():
+    platform = sysconfig.get_platform().lower()
+    runtime = Path(sys.base_prefix).as_posix().lower()
+    if (sys.platform != 'win32' or 'mingw' in sys.version.lower()
+            or any(marker in platform for marker in ('mingw', 'msys'))
+            or any(marker in runtime for marker in ('/msys', '/mingw'))):
+        raise SystemExit('Build on Windows using standard python.org CPython, not MSYS2.')
 
 
 def write_licenses(bundle):
@@ -43,8 +53,7 @@ def package(bundle, output):
 
 
 def main():
-    if sys.platform != 'win32' or 'mingw' in sys.version.lower():
-        raise SystemExit('Build on Windows using standard python.org CPython, not MSYS2.')
+    require_standard_windows_python()
     # Use a fresh work directory so private local files never enter the executable.
     work = ROOT / '.tools' / 'windows-build'
     work.mkdir(parents=True, exist_ok=True)

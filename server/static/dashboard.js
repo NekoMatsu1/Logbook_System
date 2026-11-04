@@ -26,4 +26,32 @@ if (settings) {
     save('/admin/settings',{scope:settings.elements.scope.value,values});
   });
 }
-if (location.pathname === '/admin/overview') setTimeout(() => location.reload(), 10000);
+if (location.pathname === '/admin/overview') {
+  const status = document.querySelector('#monitor-status');
+  async function refreshOverview() {
+    if (document.hidden) { setTimeout(refreshOverview, 10000); return; }
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 12000);
+    try {
+      const response = await fetch('/admin/overview', {cache:'no-store', signal:controller.signal});
+      if (response.status === 401 || response.status === 403) {
+        location.assign('/auth/login');
+        return;
+      }
+      if (!response.ok) throw new Error('Monitoring unavailable');
+      const page = new DOMParser().parseFromString(await response.text(), 'text/html');
+      const cards = page.querySelector('.cards');
+      const table = page.querySelector('.scroll');
+      if (!cards || !table) throw new Error('Monitoring unavailable');
+      document.querySelector('.cards').replaceWith(cards);
+      document.querySelector('.scroll').replaceWith(table);
+      status.textContent = 'Updated ' + new Date().toLocaleTimeString() + ' · Checks every 10 seconds.';
+    } catch (error) {
+      status.textContent = 'Connection lost. Showing the last received data. Retrying automatically.';
+    } finally {
+      clearTimeout(timeout);
+      setTimeout(refreshOverview, 10000);
+    }
+  }
+  setTimeout(refreshOverview, 10000);
+}

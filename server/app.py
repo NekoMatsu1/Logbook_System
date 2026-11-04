@@ -33,6 +33,8 @@ def create_app(config=None):
                       PRODUCTION=os.getenv('LOGBOOK_PRODUCTION', '0') == '1',
                       ADMIN_DIRECT_ONLY=os.getenv('LOGBOOK_ADMIN_DIRECT_ONLY', '0') == '1',
                       ADMIN_AUTH_MODE=os.getenv('LOGBOOK_ADMIN_AUTH_MODE','local'),
+                      ADMIN_USERNAME=os.getenv('LOGBOOK_ADMIN_USERNAME',''),
+                      ADMIN_PASSWORD_HASH=os.getenv('LOGBOOK_ADMIN_PASSWORD_HASH',''),
                       ADMIN_EMAIL=os.getenv('LOGBOOK_ADMIN_EMAIL',''),
                       GOOGLE_CLIENT_ID=os.getenv('LOGBOOK_GOOGLE_CLIENT_ID',''),
                       GOOGLE_CLIENT_SECRET=os.getenv('LOGBOOK_GOOGLE_CLIENT_SECRET',''),
