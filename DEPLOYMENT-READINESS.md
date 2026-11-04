@@ -7,6 +7,13 @@ are implemented; hosted activation still needs private password setup and one
 reload. See [OPERATIONS.md](OPERATIONS.md). The portable simulation does not
 enforce Windows access. Actual kiosk installation/acceptance remains required.
 
+Validation: 154 local tests passed, including simulated GUI workflows. Clean
+Windows and Linux jobs passed in [CI run 41855042428](https://github.com/NekoMatsu1/Logbook_System/actions/runs/41855042428).
+The v0.1.4-test.1 Windows archive passed checksum, contents and bundled-runtime
+checks locally; server archives exclude private config/data. Monitoring retry
+and login-expiry JavaScript checks passed. Hosted password activation and real
+lab-account shell enforcement have not been performed from this session.
+
 - Full local suite, including GUI workflows: **114 passed**. Dependency, Python compilation, dashboard JavaScript, PowerShell installer, and Linux shell syntax checks passed.
 - [Clean build runners](https://github.com/NekoMatsu1/Logbook_System/actions/runs/40755814061): **114 passed on Windows; 113 passed and 1 Windows-only test skipped on Linux**. The Windows runtime ZIP was built, extracted, and smoke-tested.
 - Inactivity and interactive shutdown warnings now require **Yes, I'm still here** before the deadline. Mouse movement, typing, unrelated clicks, and form focus do not cancel them. Timer and GUI tests exercise acknowledgement and expiry, including the supervised warning protocol.
