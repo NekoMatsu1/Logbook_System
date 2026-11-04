@@ -59,13 +59,15 @@ def test_first_run_picker_reuses_one_tk_root(tmp_path,monkeypatch):
     assert len(roots)==1
     assert received==[['--config',str((tmp_path/'selected.json').resolve())]]
 
-def test_shell_child_runs_desktop_without_starting_another_supervisor(monkeypatch):
+def test_shell_child_runs_desktop_without_starting_another_supervisor(monkeypatch, tmp_path):
     from types import SimpleNamespace
     import client.__main__ as desktop
     received=[]
     root=SimpleNamespace(withdraw=lambda:None,destroy=lambda:None)
     monkeypatch.setattr(launcher.tk,'Tk',lambda:root)
-    monkeypatch.setattr(launcher,'default_config',lambda:Path('config/client.json'))
+    config = tmp_path/'client.json'
+    config.write_text('{}')
+    monkeypatch.setattr(launcher,'default_config',lambda:config)
     monkeypatch.setattr(desktop,'main',lambda args,root=None:received.append((args,root)))
     assert launcher.main(['--shell-child'])==0
-    assert received==[(['--config',str(Path('config/client.json').resolve()),'--shell-child'],root)]
+    assert received==[(['--config',str(config.resolve()),'--shell-child'],root)]
