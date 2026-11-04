@@ -1,5 +1,39 @@
 # Project requirements
 
+## Reference reviewed (2026-11-04)
+
+The owner supplied the full earlier design conversation as reference. The
+owner's direct instructions take precedence over suggestions in that conversation.
+
+- Each PC uses one shared OS account. After valid student identification, the
+  student uses the normal desktop and installed applications.
+- Require identification before desktop use, not merely before creating a log
+  record. An app window, startup shortcut or simulation is not that restriction.
+- Support Windows 10/11 and Linux Mint X11 through platform-specific adapters.
+  Exact Windows edition is still unknown; the reference does not supply it.
+- Default timing is five minutes idle, then a 60-second logout warning; after
+  returning to the ready state, ten minutes without a new session starts the
+  separate shutdown warning. Administrators can configure these values.
+- Track global inactivity without storing keystrokes, screenshots, application
+  contents or unrelated student activity. Keep operational events and accurate
+  session records. Recovery must retain unknown endings rather than guess.
+- Treat OS startup, sign-out, shutdown, crash recovery and bypass resistance as
+  separate real-machine acceptance checks. Keep a recovery administrator.
+
+Older reference suggestions to cancel warnings on mouse/keyboard activity are
+superseded by the owner's explicit-button requirement below. Identification
+may pause the ready-state countdown before a warning, but it cannot dismiss an
+already visible warning. Older suggestions for local databases/offline session
+sync do not change the current central-only design: no offline session starts
+or additional local student-record storage are being introduced from reference
+material alone. Alternative commercial products are background research, not
+instructions to replace this project.
+
+Password admin login is implemented to remove recurring IP updates without
+making student records public. The private hosting setup and one reload are
+still required; see [OPERATIONS.md](OPERATIONS.md). Strict native desktop access
+still requires the managed lab-account installation and actual target-PC tests.
+
 ## Student flow
 
 - A student registers once, then signs in with the student ID and confirms the name.
@@ -24,8 +58,11 @@
 
 ## UI direction
 
-Keep the working flow. The next design pass should be minimal, stylish, and easy on the eyes: a quiet slate/teal palette, clear text, consistent spacing, and obvious login/logout actions. Keep warning/error states readable and distinct. This audit does not redesign the screens.
+Keep the working flow. Use a minimal, stylish, comfortable slate/teal palette,
+clear text, consistent spacing, and obvious login/logout actions. Keep warning
+and error states readable and distinct. The web dashboard has received this
+styling; the native student interface still needs the corresponding design pass.
 
 ## Deployment status
 
-Automated tests support the covered behavior; they do not prove every real-PC or hosting failure mode is resolved. Before production, validate another PC/network, native kiosk restrictions, real sign-out/shutdown and recovery, database restore using a real backup, expected PC load, and outside-network admin rejection. Keep simulation enabled until those checks pass.
+Automated tests support the covered behavior; they do not prove every real-PC or hosting failure mode is resolved. Before production, validate another PC/network, native kiosk restrictions, real sign-out/shutdown and recovery, database restore using a real backup, expected PC load, and unauthorized admin rejection. In password mode, valid admin login must work from another network while signed-out browsers remain blocked. Keep simulation enabled until those checks pass.
