@@ -2,6 +2,15 @@
 
 ## Functional audit (2026-10-29)
 
+Update (2026-11-05): the strict Windows installer supports the packaged app
+without a separate Python runtime. The download includes the installer/checker.
+[Clean CI build](https://github.com/NekoMatsu1/Logbook_System/actions/runs/41871782616)
+passed on Windows/Linux, including bundled credential-sealing checks. The local
+download passed checksum, archive and runtime validation. Read-only checks found
+this development PC uses Windows 11 Home Single Language, simulation and an
+administrator account; no managed shell is installed. No OS restrictions were
+applied. This does not establish the edition or readiness of other lab PCs.
+
 Update (2026-11-04): password-based administrator sessions and monitoring retry
 are implemented; hosted activation still needs private password setup and one
 reload. See [OPERATIONS.md](OPERATIONS.md). The portable simulation does not

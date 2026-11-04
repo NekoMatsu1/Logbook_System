@@ -4,7 +4,7 @@ A logbook for a computer lab. Students register their name and ID, then use thei
 
 ## Download
 
-**[Download for Windows](https://github.com/NekoMatsu1/Logbook_System/releases/download/v0.1.4-test.1/Logbook-Windows-x64.zip)** | [All releases](https://github.com/NekoMatsu1/Logbook_System/releases)
+**[Download for Windows](https://github.com/NekoMatsu1/Logbook_System/releases/download/v0.1.5-test.1/Logbook-Windows-x64.zip)** | [All releases](https://github.com/NekoMatsu1/Logbook_System/releases)
 
 For admin access without repeated IP updates and required student desktop
 restriction setup, see [Operations](OPERATIONS.md).
