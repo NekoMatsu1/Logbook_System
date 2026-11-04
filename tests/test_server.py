@@ -36,11 +36,11 @@ def test_interruption_not_network_loss(web,app,auth,ready,clock):
     web.post('/api/sessions',headers=auth,json=ready)
     clock.advance(120)
     page = web.get('/admin/overview').text
-    assert 'LAB-PC-01</td><td>offline' in page
+    assert 'LAB-PC-01</td><td><span class="status status-offline">offline</span>' in page
     with connect(app.config['DATABASE']) as db:
         assert db.execute('SELECT status FROM sessions').fetchone()[0] == 'active'
     web.post('/api/heartbeat',headers=auth,json=dict(run_id='run-1',active_session='session-1'))
-    assert 'LAB-PC-01</td><td>in-use' in web.get('/admin/overview').text
+    assert 'LAB-PC-01</td><td><span class="status status-in-use">in-use</span>' in web.get('/admin/overview').text
     with connect(app.config['DATABASE']) as db:
         assert db.execute('SELECT status FROM sessions').fetchone()[0] == 'active'
     web.post('/api/heartbeat',headers=auth,json=dict(run_id='run-2',active_session=None))

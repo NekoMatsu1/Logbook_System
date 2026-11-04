@@ -2,14 +2,14 @@
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="csrf-token" content="{{ session.csrf }}"><title>Lab logbook · {{ page }}</title>
 <link rel="stylesheet" href="{{ url_for('static',filename='style.css') }}"><script defer src="{{ url_for('static',filename='dashboard.js') }}"></script></head>
-<body><header><strong>Computer laboratory / Logbook</strong><span>Administrator · Asia/Manila</span></header>
+<body><header><div class="brand"><div class="brand-mark" aria-hidden="true">LB</div><strong>Lab Logbook</strong></div><span>Administrator · Asia/Manila</span></header>
 <nav>{% for item in ['overview','records','students','settings','events'] %}<a {% if page==item %}aria-current="page"{% endif %} href="/admin/{{ item }}">{{ item|capitalize }}</a>{% endfor %}</nav>
 {% if config.ADMIN_AUTH_MODE == 'google' %}<form method="post" action="/auth/logout"><input type="hidden" name="csrf" value="{{ session.csrf }}"><button>Sign out administrator</button></form>{% endif %}
-<main><h1>{{ page|capitalize }}</h1><p id="message" role="status"></p>
+<main><p class="eyebrow">Computer laboratory</p><h1>{{ page|capitalize }}</h1><p id="message" role="status"></p>
 {% if page=='overview' %}
 <div class="cards">{% for state in ['available','in-use','offline'] %}<article><b>{{ pcs|selectattr('status','equalto',state)|list|length }}</b><span>{{ state|capitalize }} computers</span></article>{% endfor %}<article><b>{{ active|length }}</b><span>Central active records</span></article></div>
 <p>Availability is based on agent heartbeats. An offline computer may still have an unfinished session. Refreshes every 10 seconds.</p>
-<table><tr><th>Computer</th><th>Status</th><th>Last connection</th><th>Student</th></tr>{% for pc in pcs %}<tr><td>{{ pc.computer_id }}</td><td>{{ pc.status }}</td><td>{{ pc.last_seen|manila }}</td><td>{% for s in active if s.computer_id==pc.computer_id %}{{ s.student_name }} ({{ s.student_id }}){% endfor %}</td></tr>{% endfor %}</table>
+<h2>Laboratory computers</h2><div class="scroll"><table><tr><th>Computer</th><th>Status</th><th>Last connection</th><th>Student</th></tr>{% for pc in pcs %}<tr><td>{{ pc.computer_id }}</td><td><span class="status status-{{ pc.status }}">{{ pc.status }}</span></td><td>{{ pc.last_seen|manila }}</td><td>{% for s in active if s.computer_id==pc.computer_id %}{{ s.student_name }} ({{ s.student_id }}){% endfor %}</td></tr>{% else %}<tr><td colspan="4" class="empty">No computers connected yet. Connected lab PCs will appear here.</td></tr>{% endfor %}</table></div>
 {% elif page=='records' %}
 <form method="get" class="filters"><label>Student ID<input name="student" value="{{ request.args.get('student','') }}"></label><label>Computer ID<input name="computer" value="{{ request.args.get('computer','') }}"></label><label>Login date · Manila<input type="date" name="date" value="{{ request.args.get('date','') }}"></label><button>Filter</button><a href="{{ url_for('export',**request.args) }}">Export filtered CSV</a></form>
 <p>Login and logout times show when the server saved the session changes. They do not confirm Windows sign-out. Interrupted sessions keep unknown end times and durations.</p>
