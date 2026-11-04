@@ -1,4 +1,5 @@
 import hashlib
+import pytest
 from pathlib import Path
 from zipfile import ZipFile
 
@@ -25,6 +26,8 @@ def test_download_contains_runtime_and_placeholder_without_local_credentials(tmp
         assert 'Logbook/_internal/python313.dll' in names
         assert 'Logbook/READ-ME.md' in names
         assert 'Logbook/config/client.example.json' in names
+        assert 'Logbook/scripts/install-windows-kiosk.ps1' in names
+        assert 'Logbook/scripts/check-windows-kiosk.ps1' in names
         assert not any(name.endswith('client.json') or '/server/' in name or '/data/' in name for name in names)
     assert output.with_suffix('.zip.sha256').read_text().split()[0] == hashlib.sha256(output.read_bytes()).hexdigest()
 
@@ -71,3 +74,20 @@ def test_shell_child_runs_desktop_without_starting_another_supervisor(monkeypatc
     monkeypatch.setattr(desktop,'main',lambda args,root=None:received.append((args,root)))
     assert launcher.main(['--shell-child'])==0
     assert received==[(['--config',str(config.resolve()),'--shell-child'],root)]
+
+
+def test_installer_sealing_does_not_open_student_ui(monkeypatch, tmp_path):
+    import client.credentials as credentials
+    received=[]
+    monkeypatch.setattr(credentials,'protect_config',lambda path:received.append(path))
+    monkeypatch.setattr(launcher.tk,'Tk',lambda:pytest.fail('Installer must not open student UI'))
+    config=tmp_path/'client.json'
+    assert launcher.main(['--protect-config',str(config)]) == 0
+    assert received == [config]
+
+
+def test_installer_sealing_failure_is_reported_without_private_data(monkeypatch):
+    import client.credentials as credentials
+    def fail(path): raise ValueError('private token must not be printed')
+    monkeypatch.setattr(credentials,'protect_config',fail)
+    assert launcher.main(['--protect-config','missing.json']) == 1

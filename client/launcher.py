@@ -41,7 +41,15 @@ def main(argv=None):
     parser.add_argument('--config', type=Path, help='Private configuration provisioned for this PC')
     parser.add_argument('--self-test', type=Path, help=argparse.SUPPRESS)
     parser.add_argument('--shell-child', action='store_true', help=argparse.SUPPRESS)
+    parser.add_argument('--protect-config', type=Path, help=argparse.SUPPRESS)
     args = parser.parse_args(arguments)
+    if args.protect_config:
+        from .credentials import protect_config
+        try:
+            protect_config(args.protect_config)
+        except Exception:
+            return 1  # Installer receives a failure code; no credential data or dialogs.
+        return 0
     if args.self_test:
         self_test(args.self_test)
         return 0

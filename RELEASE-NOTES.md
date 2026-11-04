@@ -2,6 +2,8 @@ Portable laboratory logbook client for controlled testing on Windows 10/11 x64.
 
 New in this release:
 
+- The Windows download now includes the strict-shell installer and read-only setup checker. The installer supports the bundled app without a separate Python installation, checks edition before making changes, and marks setup complete only after Windows accepts the managed shell. Enterprise/Education/IoT Enterprise and a separate standard lab account are still required; Home/Pro remain unsupported by this installer.
+
 - Optional admin password login replaces changing IP allowlists. Set it privately with `python -m deploy.enable_password_admin` in PythonAnywhere, then reload once. No Google or authenticator app is needed.
 - Monitoring updates without a full page reload, marks connection loss and retries automatically.
 - Fixed packaged supervisor/child/warning launch paths and added read-only Windows kiosk setup checks. Desktop restriction still needs a supported OS-managed installation; simulation does not lock Windows.

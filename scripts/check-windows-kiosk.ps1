@@ -26,7 +26,7 @@ try {
     $enabled = $launcher.IsEnabled()
     $shell = $launcher.GetCustomShell($sid)
     if ($enabled.ReturnValue -ne 0 -or -not $enabled.Enabled) { Report-Problem 'Windows Shell Launcher is not enabled.' }
-    if ($shell.ReturnValue -ne 0 -or $shell.Shell -notmatch 'kiosk_entry\.py') {
+    if ($shell.ReturnValue -ne 0 -or $shell.Shell -notmatch 'kiosk_entry\.py|Logbook\.exe') {
         Report-Problem 'The target account does not have the Logbook managed shell.'
     }
 } catch { Report-Problem 'Could not verify account/Shell Launcher. Ask the lab administrator to run this check elevated with -LabUser.' }

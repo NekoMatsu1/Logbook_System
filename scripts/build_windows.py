@@ -47,6 +47,9 @@ def package(bundle, output):
                 archive.write(path, 'Logbook/' + path.relative_to(bundle).as_posix())
         archive.write(ROOT / 'DOWNLOAD.md', 'Logbook/READ-ME.md')
         archive.write(ROOT / 'config/client.example.json', 'Logbook/config/client.example.json')
+        archive.write(ROOT / 'KIOSK-SETUP.md', 'Logbook/KIOSK-SETUP.md')
+        for name in ('install-windows-kiosk.ps1','check-windows-kiosk.ps1'):
+            archive.write(ROOT / 'scripts' / name, 'Logbook/scripts/' + name)
     digest = hashlib.sha256(output.read_bytes()).hexdigest()
     output.with_suffix('.zip.sha256').write_text(f'{digest}  {output.name}\n', encoding='ascii')
     return output
@@ -77,6 +80,21 @@ def main():
     import json
     if not json.loads(report.read_text(encoding='utf-8')).get('ok'):
         raise RuntimeError('Bundled runtime self-test failed')
+    # Test installer credential sealing with a disposable token, outside the public archive.
+    installer_config = work / 'installer-smoke.json'
+    installer_config.write_text(json.dumps({'machine_token':'build-test-token-only'}), encoding='utf-8')
+    executable = str(smoke / 'Logbook/Logbook.exe')
+    subprocess.run([executable, '--protect-config', str(installer_config)],
+                   check=True, timeout=30, cwd=work)
+    stored = json.loads(installer_config.read_text(encoding='utf-8'))
+    if 'machine_token' in stored or not stored.get('machine_token_dpapi'):
+        raise RuntimeError('Bundled installer credential sealing failed')
+    if str(ROOT) not in sys.path:
+        sys.path.insert(0, str(ROOT))
+    from client.credentials import load_config
+    if load_config(installer_config)['machine_token'] != 'build-test-token-only':
+        raise RuntimeError('Bundled protected config could not be read on the same PC')
+    installer_config.unlink()
     print(f'Built and smoke-tested: {output}')
 
 

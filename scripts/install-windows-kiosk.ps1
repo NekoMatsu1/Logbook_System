@@ -6,6 +6,12 @@ if (-not $Install -and -not $Uninstall) {
     exit
 }
 if ($Install -and $Uninstall) { throw 'Choose one action.' }
+if ($Install) {
+    $os = Get-CimInstance Win32_OperatingSystem
+    if ($os.Caption -notmatch 'Enterprise|Education|IoT') {
+        throw 'This Windows edition does not support this managed shell installer. Windows Home/Pro cannot be made enforced by running the portable app.'
+    }
+}
 $identity = New-Object Security.Principal.NTAccount($LabUser)
 $sid = $identity.Translate([Security.Principal.SecurityIdentifier]).Value
 if ($sid -eq [Security.Principal.WindowsIdentity]::GetCurrent().User.Value) { throw 'Refusing to replace the shell of the account running this installer. Use a separate standard lab account.' }
@@ -44,8 +50,13 @@ if (Test-Path -LiteralPath $backup) { throw 'Rollback backup already exists. Rev
 $localAccount = Get-LocalUser -SID $sid -ErrorAction Stop
 if (Get-LocalGroupMember -SID 'S-1-5-32-544' | Where-Object { $_.SID.Value -eq $sid }) { throw 'The lab account must be a standard local account, not an administrator.' }
 $python = Join-Path $root '.venv\Scripts\python.exe'
+$executable = Join-Path $root 'Logbook.exe'
 $configPath = Join-Path $root 'config\client.json'
-if (-not (Test-Path -LiteralPath $python)) { throw 'Create a standard CPython venv in the protected installation.' }
+if (Test-Path -LiteralPath $executable) {
+    $shell = '"' + $executable + '" --config "' + $configPath + '"'
+} elseif (Test-Path -LiteralPath $python) {
+    $shell = '"' + $python + '" "' + (Join-Path $root 'scripts\kiosk_entry.py') + '" --config "' + $configPath + '"'
+} else { throw 'Place the complete Logbook Windows download or a standard CPython venv in the protected installation.' }
 $config = Get-Content -LiteralPath $configPath -Raw | ConvertFrom-Json
 if ($config.simulation -ne $false) { throw 'Live kiosk installation requires the administrator to explicitly set simulation=false on this dedicated lab PC first.' }
 # Reject broad write permissions on the root. Effective nested ACLs still require administrator review.
@@ -61,20 +72,24 @@ $previous = foreach ($value in $policies) {
 }
 @{Policies=$previous;PreviousShell=$launcher.GetCustomShell($sid);PreviousDefault=$launcher.GetDefaultShell()} | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $backup -Encoding UTF8
 Set-Location -LiteralPath $root
-& $python -m client.credentials --protect $configPath
-if ($LASTEXITCODE) { throw 'Machine credential sealing failed.' }
-$config = Get-Content -LiteralPath $configPath -Raw | ConvertFrom-Json
-$config | Add-Member -NotePropertyName kiosk_shell_installed -NotePropertyValue $true -Force
-$config | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $configPath -Encoding UTF8
+if (Test-Path -LiteralPath $executable) {
+    $protection = Start-Process -FilePath $executable -ArgumentList @('--protect-config',('"' + $configPath + '"')) -WindowStyle Hidden -Wait -PassThru
+    if ($protection.ExitCode -ne 0) { throw 'Machine credential sealing failed. Use a release that supports managed installation.' }
+} else {
+    & $python -m client.credentials --protect $configPath
+    if ($LASTEXITCODE) { throw 'Machine credential sealing failed.' }
+}
 foreach ($value in $policies) {
     New-Item -Path $value.Path -Force | Out-Null
     New-ItemProperty -LiteralPath $value.Path -Name $value.Name -Value 1 -PropertyType DWord -Force | Out-Null
 }
-$shell = '"' + $python + '" "' + (Join-Path $root 'scripts\kiosk_entry.py') + '" --config "' + $configPath + '"'
 $result = $launcher.SetDefaultShell('explorer.exe',0)
 if ($result.ReturnValue -ne 0) { throw 'Could not preserve the normal administrator shell.' }
 $result = $launcher.SetCustomShell($sid,$shell,$null,$null,0)
 if ($result.ReturnValue -ne 0) { throw "SetCustomShell failed: $($result.ReturnValue). Roll back using the saved backup." }
 $result = $launcher.SetEnabled($true)
 if ($result.ReturnValue -ne 0) { throw 'Enabling Shell Launcher failed.' }
+$config = Get-Content -LiteralPath $configPath -Raw | ConvertFrom-Json
+$config | Add-Member -NotePropertyName kiosk_shell_installed -NotePropertyValue $true -Force
+$config | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $configPath -Encoding UTF8
 Write-Output 'Installed for next lab-account logon. No forced sign-out/reboot. Keep a separate administrator account for recovery.'
