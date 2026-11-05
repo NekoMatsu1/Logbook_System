@@ -13,6 +13,7 @@ def test_student_package_has_no_server_database_or_private_keys(tmp_path):
     with ZipFile(output) as archive:
         names=archive.namelist()
         assert 'start-student.cmd' in names and 'client/__main__.py' in names
+        assert 'client/theme.py' in names
         assert 'config/lan-ca.pem' in names
         assert json.loads(archive.read('config/client.json'))==config
         assert not any(name.startswith(('server/','data/','deploy/')) for name in names)

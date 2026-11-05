@@ -64,7 +64,7 @@ https://{address}:5443 {{
 def build_package(destination, config, ca):
     # Explicit client-only allowlist: no server code, database, helper, or private TLS keys.
     files = ['common.py','requirements-client.txt','client/__init__.py','client/__main__.py',
-             'client/api.py','client/state.py','client/instance.py','client/credentials.py','client/gate.py',
+             'client/api.py','client/state.py','client/instance.py','client/credentials.py','client/gate.py','client/theme.py',
              'client/kiosk.py','client/kiosk_warning.py','client/platforms/desktop_gate.py','client/platforms/__init__.py',
              'client/platforms/base.py','client/platforms/windows.py','client/platforms/linux.py',
              'scripts/kiosk_entry.py','scripts/install-windows-kiosk.ps1','scripts/install-linux-kiosk.sh','KIOSK-SETUP.md']
