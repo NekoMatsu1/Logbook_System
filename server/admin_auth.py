@@ -5,7 +5,7 @@ import hmac
 import secrets
 import time
 from functools import wraps
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlsplit
 
 import requests
 from flask import abort, g, jsonify, redirect, render_template, request, session
@@ -13,6 +13,22 @@ from werkzeug.security import check_password_hash
 
 def digest(value):
     return hashlib.sha256(value.encode()).hexdigest()
+
+
+def same_origin(origin, scheme, host):
+    """Compare URL origins, including case-insensitive hosts and default ports."""
+    try:
+        supplied, expected = urlsplit(origin), urlsplit(f'{scheme}://{host}')
+        def identity(url):
+            if (url.scheme not in ('http','https') or not url.hostname or
+                    url.username is not None or url.password is not None or
+                    url.path or url.query or url.fragment):
+                raise ValueError('Not an origin')
+            port = url.port
+            return url.scheme, url.hostname.lower(), port if port is not None else (443 if url.scheme=='https' else 80)
+        return identity(supplied) == identity(expected)
+    except ValueError:
+        return False
 
 def verify_google_token(token, audience, access_token=None):
     from jose import jwt
@@ -91,23 +107,17 @@ def install_admin_auth(app):
     @app.route('/auth/login', methods=['GET', 'POST'])
     def login():
         if request.headers.get('Authorization') or request.headers.get('X-Computer-ID'):
-            abort(403)
+            abort(403,'Machine credentials cannot be used for administrator sign-in')
         if mode not in ('google', 'password'):
             abort(404)
         if not request.is_secure:
-            abort(403)
+            abort(403,'Open administrator sign-in over HTTPS')
         if mode == 'password':
             if request.method == 'GET':
                 return login_page()
-            from urllib.parse import urlsplit
             origin = request.headers.get('Origin')
-            if origin:
-                try:
-                    parsed = urlsplit(origin)
-                except ValueError:
-                    abort(403)
-                if (parsed.scheme, parsed.netloc) != (request.scheme, request.host):
-                    abort(403)
+            if origin and not same_origin(origin, request.scheme, request.host):
+                abort(403,'Sign-in origin mismatch; reopen the dashboard directly over HTTPS')
             expected, supplied = session.get('login_csrf', ''), request.form.get('csrf', '')
             if request.headers.get('Sec-Fetch-Site') == 'cross-site' or not expected or not hmac.compare_digest(expected.encode(), supplied.encode()):
                 abort(403,'Sign-in form expired; reload it')
@@ -219,15 +229,9 @@ def install_admin_auth(app):
             ):
                 abort(403,'Cross-site administrator requests are forbidden')
             if request.method != 'GET':
-                from urllib.parse import urlsplit
                 origin = request.headers.get('Origin')
-                if origin:
-                    try:
-                        parsed = urlsplit(origin)
-                    except ValueError:
-                        abort(403)
-                    if (parsed.scheme,parsed.netloc) != (request.scheme,request.host):
-                        abort(403,'Administrator origin mismatch')
+                if origin and not same_origin(origin, request.scheme, request.host):
+                    abort(403,'Administrator origin mismatch')
                 expected, supplied = session.get('csrf',''), request.headers.get('X-CSRF-Token') or request.form.get('csrf','')
                 if not expected or not hmac.compare_digest(expected,supplied):
                     abort(403,'Invalid CSRF token; reload dashboard')

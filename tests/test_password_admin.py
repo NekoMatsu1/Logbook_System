@@ -5,6 +5,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 from deploy.enable_password_admin import enable
 from server.app import create_app
+from server.admin_auth import same_origin
 
 
 @pytest.fixture(scope='module')
@@ -115,3 +116,35 @@ def test_password_mode_requires_https_and_configured_credentials(app, password_h
         with pytest.raises(RuntimeError):
             create_app(dict(app.config) | dict(ADMIN_AUTH_MODE='password', ADMIN_USERNAME='owner',
                 ADMIN_PASSWORD_HASH=password_hash, SESSION_COOKIE_SECURE=True) | change)
+
+
+@pytest.mark.parametrize('origin,allowed',[
+    ('https://LOCALHOST',True), ('https://localhost:443',True),
+    ('https://localhost:444',False), ('http://localhost',False),
+    ('https://localhost.evil.example',False), ('null',False),
+    ('https://owner@localhost',False), ('https://localhost/path',False),
+    ('https://localhost?x=1',False), ('https://localhost#fragment',False),
+    ('https://localhost:invalid',False), ('https://[invalid',False),
+])
+def test_origin_comparison_uses_scheme_hostname_and_effective_port(origin, allowed):
+    assert same_origin(origin,'https','localhost') is allowed
+
+
+@pytest.mark.parametrize('origin',['https://LOCALHOST','https://localhost:443'])
+def test_password_login_and_writes_allow_equivalent_origin(secured,origin):
+    web=secured.test_client()
+    web.get('/auth/login',base_url='https://localhost')
+    with web.session_transaction() as session:
+        csrf=session['login_csrf']
+    result=web.post('/auth/login',base_url='https://localhost',
+        headers={'Origin':origin},data=dict(username='owner',password='test-only passphrase!',csrf=csrf))
+    assert result.status_code==302
+    with web.session_transaction() as session:
+        csrf=session['csrf']
+    assert web.post('/auth/logout',base_url='https://localhost',
+        headers={'Origin':origin},data={'csrf':csrf}).status_code==302
+
+
+def test_matching_origin_still_requires_csrf(secured):
+    assert secured.test_client().post('/auth/login',base_url='https://localhost',
+        headers={'Origin':'https://LOCALHOST'},data=dict(username='owner',password='test-only passphrase!')).status_code==403
