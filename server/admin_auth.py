@@ -117,7 +117,23 @@ def install_admin_auth(app):
                 return login_page()
             origin = request.headers.get('Origin')
             if origin and not same_origin(origin, request.scheme, request.host):
-                abort(403,'Sign-in origin mismatch; reopen the dashboard directly over HTTPS')
+                if origin == 'null':
+                    abort(403,'Your browser hid the page origin. Open sign-in directly in a normal Edge/Chrome tab, not an embedded preview, then try again.')
+                try:
+                    browser_scheme = urlsplit(origin).scheme
+                except ValueError:
+                    browser_scheme = ''
+                if browser_scheme == 'http':
+                    abort(403,'Sign-in was submitted from an HTTP page. Enable Force HTTPS in PythonAnywhere, reload the web app, then open a fresh HTTPS sign-in page.')
+                # Only public URL components are reported; no cookies, form fields or credentials.
+                try:
+                    parsed_origin = urlsplit(origin)
+                    browser_host = parsed_origin.hostname or 'unrecognized'
+                    browser_port = parsed_origin.port
+                except ValueError:
+                    browser_host, browser_port = 'unrecognized', None
+                browser_origin = f'{browser_scheme}://{browser_host}' + (f':{browser_port}' if browser_port is not None else '')
+                abort(403,f'Sign-in origin mismatch. Browser: {browser_origin}; server: {request.scheme}://{request.host}. Open sign-in directly in a normal HTTPS browser tab.')
             expected, supplied = session.get('login_csrf', ''), request.form.get('csrf', '')
             if request.headers.get('Sec-Fetch-Site') == 'cross-site' or not expected or not hmac.compare_digest(expected.encode(), supplied.encode()):
                 abort(403,'Sign-in form expired; reload it')

@@ -148,3 +148,20 @@ def test_password_login_and_writes_allow_equivalent_origin(secured,origin):
 def test_matching_origin_still_requires_csrf(secured):
     assert secured.test_client().post('/auth/login',base_url='https://localhost',
         headers={'Origin':'https://LOCALHOST'},data=dict(username='owner',password='test-only passphrase!')).status_code==403
+
+
+@pytest.mark.parametrize('origin,expected',[
+    ('null','browser hid the page origin'),
+    ('http://localhost','HTTP page'),
+    ('https://other.example','Browser: https://other.example'),
+])
+def test_origin_failure_explains_cause_without_exposing_credentials(secured,origin,expected):
+    web=secured.test_client()
+    web.get('/auth/login',base_url='https://localhost')
+    with web.session_transaction() as session:
+        csrf=session['login_csrf']
+    response=web.post('/auth/login',base_url='https://localhost',headers={'Origin':origin},
+        data=dict(username='owner',password='private-do-not-echo',csrf=csrf))
+    assert response.status_code==403
+    assert expected in response.json['error']
+    assert 'private-do-not-echo' not in response.text and csrf not in response.text
