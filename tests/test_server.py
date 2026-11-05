@@ -4,11 +4,11 @@ from concurrent.futures import ThreadPoolExecutor
 from server.db import connect
 
 def test_registration_lookup(web,auth):
-    data = dict(student_id='00123',name='Juan')
+    data = dict(student_id='0000000123',name='Cruz, Juan, Santos')
     assert web.post('/api/register',headers=auth,json=data).status_code == 201
     assert web.post('/api/register',headers=auth,json=data).status_code == 409
-    assert web.get('/api/students/00123',headers=auth).json == data
-    assert web.get('/api/students/123',headers=auth).status_code == 404
+    assert web.get('/api/students/0000000123',headers=auth).json == data
+    assert web.get('/api/students/0000000124',headers=auth).status_code == 404
     assert web.post('/api/register',headers=auth,json=dict(student_id=123,name='Name')).status_code == 400
 
 def test_idempotent_start_end(web,auth,ready,clock):
@@ -75,16 +75,22 @@ def test_override_validation(web,auth,csrf):
     assert result['inactivity_seconds']==300 and result['auto_shutdown'] is True
     assert web.post('/admin/settings',headers=csrf,json=dict(scope='*',values={'inactivity_seconds':True})).status_code==400
 
-def test_csv_filters_and_formula_protection(web,auth,ready,csrf,clock):
+def test_csv_filters_and_formula_protection(web,auth,ready,csrf,clock,app):
     web.post('/api/sessions',headers=auth,json=ready)
-    assert web.post('/admin/students',headers=csrf,json=dict(student_id='00123',name='=1+1',active=True)).status_code==200
+    assert web.post('/admin/students',headers=csrf,json=dict(student_id='0000000123',name='=1+1',active=True)).status_code==400
+    # Simulate an old unsafe name already stored before strict registration validation.
+    with connect(app.config['DATABASE']) as db:
+        db.execute('UPDATE students SET name=? WHERE student_id=?',('=1+1','0000000123'))
     # Historical name survives admin edit.
-    exported=web.get('/admin/export.csv?student=00123&computer=LAB-PC-01&date=2026-10-23')
+    exported=web.get('/admin/export.csv?student=0000000123&computer=LAB-PC-01&date=2026-10-23')
     rows=list(csv.DictReader(io.StringIO(exported.text)))
-    assert len(rows)==1 and rows[0]['student_name']=='Juan dela Cruz'
+    assert len(rows)==1 and rows[0]['student_name']=='Dela Cruz, Juan, Santos'
     assert len(list(csv.DictReader(io.StringIO(web.get('/admin/export.csv?student=absent').text))))==0
     web.post('/api/sessions/session-1/end',headers=auth,json=dict(run_id='run-1',reason='inactivity'))
-    web.post('/api/sessions',headers=auth,json=ready|{'session_id':'session-2'})
+    assert web.post('/api/sessions',headers=auth,json=ready|{'session_id':'session-2'}).status_code==400
+    with connect(app.config['DATABASE']) as db:
+        db.execute("INSERT INTO sessions(session_id,student_id,student_name,computer_id,run_id,login_time,status) VALUES(?,?,?,?,?,?,?)",
+            ('old-session','0000000123','=1+1','LAB-PC-01','run-1',app.config['NOW']().isoformat(),'interrupted'))
     rows=list(csv.DictReader(io.StringIO(web.get('/admin/export.csv').text)))
     assert any(r['student_name']=="'=1+1" for r in rows)
     assert web.get('/admin/export.csv?date=bad').status_code==400
@@ -94,10 +100,10 @@ def test_all_dashboard_pages(web,ready):
         assert web.get('/admin/'+page).status_code==200
 
 def test_deactivation_and_duplicate_admin_registration(web,auth,ready,csrf):
-    data=dict(student_id='00123',name='Juan',active=False)
+    data=dict(student_id='0000000123',name='Cruz, Juan, Santos',active=False)
     assert web.post('/admin/students',headers=csrf,json=data|{'create':True}).status_code==409
     assert web.post('/admin/students',headers=csrf,json=data).status_code==200
-    assert web.get('/api/students/00123',headers=auth).status_code==404
+    assert web.get('/api/students/0000000123',headers=auth).status_code==404
     assert web.post('/api/sessions',headers=auth,json=ready).status_code==404
 
 def test_no_cross_machine_session_access(web,auth,ready):

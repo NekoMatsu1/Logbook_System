@@ -2,6 +2,10 @@ Portable laboratory logbook client for controlled testing on Windows 10/11 x64.
 
 New in this release:
 
+- Student IDs must contain exactly 10 digits. Invalid input shows a clear error before a request is sent; server checks also apply to older clients. Leading zeros are preserved.
+- Registration requires `Surname, FirstName, Middle Name`. Invalid existing records need admin correction before a new login; historical records are retained.
+- Login and registration use separate screens. Student access, active-session and warning windows share a new slate/teal style with readable text and clear actions. Test mode explicitly says it does not block the desktop.
+
 - The Windows download now includes the strict-shell installer and read-only setup checker. The installer supports the bundled app without a separate Python installation, checks edition before making changes, and marks setup complete only after Windows accepts the managed shell. Enterprise/Education/IoT Enterprise and a separate standard lab account are still required; Home/Pro remain unsupported by this installer.
 
 - Optional admin password login replaces changing IP allowlists. Set it privately with `python -m deploy.enable_password_admin` in PythonAnywhere, then reload once. No Google or authenticator app is needed.

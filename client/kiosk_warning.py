@@ -14,23 +14,31 @@ def main(argv=None):
     from .gate import _attach_windows_pipes
     _attach_windows_pipes(('stdout',))
     root=tk.Tk()
+    from .theme import install
+    install(root)
     root.title('Laboratory inactivity warning')
     root.attributes('-topmost',True)
     root.protocol('WM_DELETE_WINDOW',lambda:None)
     text=tk.StringVar()
-    ttk.Label(root,textvariable=text,padding=30,wraplength=480,font=('',14)).pack()
+    panel=ttk.Frame(root,padding=28)
+    panel.pack(fill='both',expand=True,padx=16,pady=16)
+    ttk.Label(panel,text='SESSION CHECK',style='Eyebrow.TLabel').pack(anchor='w')
+    ttk.Label(panel,text='Are you still working?',style='Heading.TLabel').pack(anchor='w',pady=(8,14))
+    ttk.Label(panel,textvariable=text,wraplength=460).pack(anchor='w')
     deadline=time.monotonic()+args.seconds
     def confirm():
         if time.monotonic() >= deadline:
             return
         print(args.confirmation_token,file=sys.stdout,flush=True)
         button.configure(state='disabled')
-    button=ttk.Button(root,text="Yes, I'm still here",command=confirm)
-    button.pack(pady=(0,20))
+    button=ttk.Button(panel,text="Yes, I'm still here",style='Accent.TButton',command=confirm)
+    button.pack(fill='x',pady=(20,0))
     def tick():
         import math
         seconds=max(0,math.ceil(deadline-time.monotonic()))
-        text.set(('SIMULATION\n' if args.simulation else '')+f'Are you still working?\nAutomatic sign-out in {seconds} seconds may close applications and lose unsaved work.\nClick "Yes, I\'m still here" to keep your session.')
+        if seconds == 0:
+            button.configure(state='disabled')
+        text.set(('Test mode\n' if args.simulation else '')+f'Automatic sign-out in {seconds} seconds may close applications and lose unsaved work.\n\nClick "Yes, I\'m still here" to keep your session.')
         root.after(200,tick)
     tick()
     root.mainloop()

@@ -18,7 +18,7 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 from flask import Flask, abort, g, jsonify, redirect, render_template, request, session
 from .db import connect, initialize
 from .admin_auth import install_admin_auth
-from common import DEFAULTS
+from common import DEFAULTS, valid_student_id, STUDENT_ID_ERROR, valid_student_name, STUDENT_NAME_ERROR
 
 def utcnow():
     return datetime.now(timezone.utc)
@@ -140,13 +140,14 @@ def create_app(config=None):
             abort(400, 'JSON object required')
         return value
 
-    def field(value, key, maximum=128):
+    def field(value, key, maximum=128, allow_legacy_id=False):
         text = value.get(key)
+        if key == 'student_id' and not allow_legacy_id:
+            if not isinstance(text, str) or len(text)>maximum or not valid_student_id(text.strip()):
+                abort(400, STUDENT_ID_ERROR)
         if not isinstance(text, str) or not text.strip() or len(text) > maximum or any(ord(c) < 32 for c in text):
             abort(400, f'Invalid {key}')
         text = text.strip()
-        if key == 'student_id' and not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._-]{0,63}',text):
-            abort(400, 'Student ID must use letters, digits, periods, underscores or hyphens')
         return text
 
     def settings(computer='*'):
@@ -170,6 +171,8 @@ def create_app(config=None):
     def register():
         data = body()
         sid, name = field(data, 'student_id', 64), field(data, 'name')
+        if not valid_student_name(name):
+            abort(400, STUDENT_NAME_ERROR)
         try:
             with g.db:
                 g.db.execute('INSERT INTO students(student_id,name) VALUES(?,?)', (sid, name))
@@ -181,9 +184,13 @@ def create_app(config=None):
     @app.get('/api/students/<sid>')
     @machine
     def lookup(sid):
+        if not valid_student_id(sid):
+            abort(400, STUDENT_ID_ERROR)
         row = g.db.execute('SELECT student_id,name FROM students WHERE student_id=? AND active=1', (sid,)).fetchone()
         if not row:
             abort(404, 'Unknown or deactivated student ID')
+        if not valid_student_name(row['name']):
+            abort(400, 'Registered name needs administrator correction. ' + STUDENT_NAME_ERROR)
         return jsonify(dict(row))
 
     @app.post('/api/heartbeat')
@@ -232,6 +239,8 @@ def create_app(config=None):
             student = g.db.execute('SELECT * FROM students WHERE student_id=? AND active=1', (sid,)).fetchone()
             if not student:
                 abort(404, 'Unknown or deactivated student ID')
+            if not valid_student_name(student['name']):
+                abort(400, 'Registered name needs administrator correction. ' + STUDENT_NAME_ERROR)
             try:
                 g.db.execute('INSERT INTO sessions(session_id,student_id,student_name,computer_id,run_id,login_time,status) '
                              "VALUES(?,?,?,?,?,?,'active')", (key, sid, student['name'], g.computer, run, now()))
@@ -357,7 +366,12 @@ def create_app(config=None):
     @admin
     def edit_student():
         data = body()
-        sid, name = field(data, 'student_id', 64), field(data, 'name')
+        # Preserve old test records and let an admin deactivate them, never reactivate invalid IDs.
+        sid = field(data, 'student_id', 64,
+                    allow_legacy_id=not data.get('create') and data.get('active') is False)
+        name = field(data, 'name')
+        if (data.get('create') or data.get('active', True) is not False) and not valid_student_name(name):
+            abort(400, STUDENT_NAME_ERROR)
         if type(data.get('active', True)) is not bool:
             abort(400, 'Active must be boolean')
         with g.db:

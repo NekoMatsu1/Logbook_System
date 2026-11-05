@@ -85,7 +85,7 @@ def test_verified_backup_restores_records_without_overwriting(app,web,auth,ready
         backup_database(app.config['DATABASE'],app.config['DATABASE'])
     # CSV keeps leading-zero IDs, exact duration and the original UTC timestamps.
     row=next(csv.DictReader(io.StringIO(web.get('/admin/export.csv').text)))
-    assert row['student_id']=='00123' and row['duration']=='37.125'
+    assert row['student_id']=='0000000123' and row['duration']=='37.125'
     assert row['login_time']==completed['login_time'] and row['logout_time']==completed['logout_time']
 
 

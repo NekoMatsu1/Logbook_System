@@ -37,8 +37,8 @@ def auth():
 @pytest.fixture
 def ready(web,auth):
     web.post('/api/heartbeat',headers=auth,json=dict(run_id='run-1',active_session=None))
-    web.post('/api/register',headers=auth,json=dict(student_id='00123',name='Juan dela Cruz'))
-    return dict(student_id='00123',run_id='run-1',session_id='session-1')
+    web.post('/api/register',headers=auth,json=dict(student_id='0000000123',name='Dela Cruz, Juan, Santos'))
+    return dict(student_id='0000000123',run_id='run-1',session_id='session-1')
 
 @pytest.fixture
 def csrf(web):

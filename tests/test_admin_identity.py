@@ -149,22 +149,22 @@ def test_token_verifier_rejects_bad_signature_audience_issuer_and_expiry(rsa_pai
 
 def test_lab_network_guard_and_computer_revocation(app,auth):
     secured=create_app(dict(TESTING=True,DATABASE=app.config['DATABASE'],LAB_NETWORKS=['192.168.1.0/24'])).test_client()
-    assert secured.get('/api/students/unknown',headers=auth,environ_overrides={'REMOTE_ADDR':'127.0.0.1'}).status_code==403
-    assert secured.get('/api/students/unknown',base_url='https://localhost',headers=auth,environ_overrides={'REMOTE_ADDR':'192.168.1.10'}).status_code==404
+    assert secured.get('/api/students/9999999999',headers=auth,environ_overrides={'REMOTE_ADDR':'127.0.0.1'}).status_code==403
+    assert secured.get('/api/students/9999999999',base_url='https://localhost',headers=auth,environ_overrides={'REMOTE_ADDR':'192.168.1.10'}).status_code==404
     with connect(app.config['DATABASE']) as db:
         db.execute('UPDATE computers SET enabled=0 WHERE computer_id=?',('LAB-PC-01',))
-    assert secured.get('/api/students/unknown',base_url='https://localhost',headers=auth,environ_overrides={'REMOTE_ADDR':'192.168.1.10'}).status_code==401
+    assert secured.get('/api/students/9999999999',base_url='https://localhost',headers=auth,environ_overrides={'REMOTE_ADDR':'192.168.1.10'}).status_code==401
 
 def test_remote_client_access_uses_machine_credentials_without_network_allowlist(app,auth):
     remote=create_app(dict(TESTING=True,DATABASE=app.config['DATABASE'],SECRET_KEY='x'*48,
                            PRODUCTION=True,ADMIN_DIRECT_ONLY=True,ADMIN_ADDRESSES=['127.0.0.1'],
                            ALLOW_REMOTE_CLIENTS=True)).test_client()
     address={'REMOTE_ADDR':'198.51.100.27'}
-    assert remote.get('/api/students/unknown',base_url='https://localhost',
+    assert remote.get('/api/students/9999999999',base_url='https://localhost',
                       headers=auth,environ_overrides=address).status_code==404
-    assert remote.get('/api/students/unknown',base_url='https://localhost',
+    assert remote.get('/api/students/9999999999',base_url='https://localhost',
                       headers=auth|{'Authorization':'Bearer invalid'},environ_overrides=address).status_code==401
     restricted=create_app(dict(TESTING=True,DATABASE=app.config['DATABASE'],SECRET_KEY='x'*48,
                                PRODUCTION=True,ADMIN_DIRECT_ONLY=True,ADMIN_ADDRESSES=['127.0.0.1'])).test_client()
-    assert restricted.get('/api/students/unknown',base_url='https://localhost',
+    assert restricted.get('/api/students/9999999999',base_url='https://localhost',
                           headers=auth,environ_overrides=address).status_code==403

@@ -11,15 +11,15 @@ def test_real_http_workflow(app,clock):
                  machine_token='test-token',allow_loopback_http=True))
     try:
         api.call('POST','/api/heartbeat',dict(run_id='transport',active_session=None))
-        api.call('POST','/api/register',dict(student_id='0007',name='Maria Santos'))
-        assert api.lookup('0007')['name']=='Maria Santos'
-        result=api.call('POST','/api/sessions',dict(student_id='0007',run_id='transport',session_id='http-session'))
+        api.call('POST','/api/register',dict(student_id='0000000007',name='Santos, Maria, Reyes'))
+        assert api.lookup('0000000007')['name']=='Santos, Maria, Reyes'
+        result=api.call('POST','/api/sessions',dict(student_id='0000000007',run_id='transport',session_id='http-session'))
         assert result['status']=='active'
         clock.advance(50)
         result=api.call('POST','/api/sessions/http-session/end',dict(run_id='transport',reason='simulated_inactivity'))
         assert result['status']=='completed' and result['duration']==50
         with pytest.raises(APIError,match='404'):
-            api.lookup('unknown')
+            api.lookup('9999999999')
         # Provisioned credentials do not give this client dashboard access.
         with pytest.raises(APIError,match='403'):
             api.call('GET','/admin/overview')
