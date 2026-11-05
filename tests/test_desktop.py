@@ -64,7 +64,17 @@ def test_tk_registration_login_and_simulated_logout(app,clock,monkeypatch,gated,
         pump_until(lambda:agent.connected and not agent.busy)
         assert agent.login_page.winfo_ismapped()
         assert not agent.register_page.winfo_ismapped()
+        assert agent.id_count.get() == '0/10' and 'disabled' in agent.submit.state()
+        pending, button_text = [root], []
+        while pending:
+            widget = pending.pop()
+            pending.extend(widget.winfo_children())
+            if widget.winfo_class() == 'TButton':
+                button_text.append(widget.cget('text'))
+        assert 'Cancel identification' not in button_text
         agent.sid.set('0000000042')
+        root.update_idletasks()
+        assert agent.id_count.get() == '10/10' and 'disabled' not in agent.submit.state()
         agent.name.set('Reyes, Ana, Santos')
         agent.mode.set('register')
         root.update_idletasks()

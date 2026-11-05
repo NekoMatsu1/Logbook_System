@@ -13,7 +13,7 @@ from .platforms import load
 from .state import Timers
 from .instance import acquire
 from .credentials import load_config
-from .theme import install as install_theme
+from .theme import install as install_theme, BACKGROUND
 from common import valid_student_id, STUDENT_ID_ERROR, valid_student_name, STUDENT_NAME_ERROR
 
 class Desktop:
@@ -42,33 +42,43 @@ class Desktop:
         self.results = queue.Queue()
         self.mode = tk.StringVar(value='login')
         self.sid, self.name = tk.StringVar(), tk.StringVar()
+        self.id_count = tk.StringVar(value='0/10')
         self.status = tk.StringVar(value='Connecting to central server…')
         root.title('Laboratory student logbook')
-        root.geometry('640x680')
-        root.minsize(580,620)
+        root.geometry('520x680')
+        root.minsize(480,630)
         if gate and not self.adapter.simulation:
             root.overrideredirect(True)
             root.geometry(f'{root.winfo_screenwidth()}x{root.winfo_screenheight()}+0+0')
-        frame = ttk.Frame(root, padding=28)
-        frame.pack(fill='both', expand=True,padx=18,pady=18)
+        frame = ttk.Frame(root, padding=28, style='Card.TFrame')
+        frame.pack(fill='both', expand=True,padx=20,pady=20)
         ttk.Label(frame,text='LAB LOGBOOK',style='Eyebrow.TLabel').pack(anchor='w')
-        ttk.Label(frame,text=config['computer_id'],style='Title.TLabel').pack(anchor='w',pady=(4,12))
-        ttk.Label(frame,text='Test mode: desktop access is not blocked; power actions disabled.' if self.adapter.simulation else 'Managed student access · Live OS operations',style='Notice.TLabel',wraplength=510).pack(fill='x',pady=(0,18))
+        ttk.Label(frame,text=config['computer_id'],style='Title.TLabel').pack(anchor='w',pady=(4,14))
+        ttk.Label(frame,text='Test mode: desktop access is not blocked; power actions disabled.' if self.adapter.simulation else 'Managed student access · Live OS operations',style='Notice.TLabel',wraplength=400).pack(fill='x',pady=(0,20))
         self.login_page = ttk.Frame(frame)
         self.register_page = ttk.Frame(frame)
         ttk.Label(self.login_page,text='Welcome back',style='Heading.TLabel').pack(anchor='w',pady=(0,4))
         ttk.Label(self.login_page,text='Enter your student ID to begin a session.',style='Muted.TLabel').pack(anchor='w',pady=(0,18))
         ttk.Label(self.login_page,text='Student ID (exactly 10 digits)').pack(anchor='w')
-        self.login_id_entry = ttk.Entry(self.login_page,textvariable=self.sid)
-        self.login_id_entry.pack(fill='x',pady=5)
-        ttk.Button(self.login_page,text='New student? Go to registration',style='Link.TButton',command=lambda:self.mode.set('register')).pack(anchor='w',pady=8)
+        id_validation = (root.register(lambda value: len(value) <= 10 and (not value or value.isascii() and value.isdigit())), '%P')
+        login_id = ttk.Frame(self.login_page,style='Soft.TFrame')
+        login_id.pack(fill='x',pady=(8,4))
+        self.login_id_entry = ttk.Entry(login_id,textvariable=self.sid,style='Id.TEntry',validate='key',validatecommand=id_validation)
+        self.login_id_entry.pack(fill='x')
+        self.login_count = ttk.Label(login_id,textvariable=self.id_count,style='IdCount.TLabel')
+        self.login_count.place(relx=1,rely=.5,x=-14,anchor='e')
+        ttk.Button(self.login_page,text='New student? Go to registration',style='Link.TButton',command=lambda:self.mode.set('register')).pack(anchor='w',pady=(10,6))
         ttk.Label(self.register_page,text='Create your student record',style='Heading.TLabel').pack(anchor='w',pady=(0,12))
         ttk.Label(self.register_page,text='Student ID (exactly 10 digits)').pack(anchor='w')
-        self.register_id_entry = ttk.Entry(self.register_page,textvariable=self.sid)
-        self.register_id_entry.pack(fill='x',pady=5)
+        register_id = ttk.Frame(self.register_page,style='Soft.TFrame')
+        register_id.pack(fill='x',pady=(8,12))
+        self.register_id_entry = ttk.Entry(register_id,textvariable=self.sid,style='Id.TEntry',validate='key',validatecommand=id_validation)
+        self.register_id_entry.pack(fill='x')
+        self.register_count = ttk.Label(register_id,textvariable=self.id_count,style='IdCount.TLabel')
+        self.register_count.place(relx=1,rely=.5,x=-14,anchor='e')
         ttk.Label(self.register_page,text='Full name: Surname, FirstName, Middle Name').pack(anchor='w')
         self.name_entry = ttk.Entry(self.register_page,textvariable=self.name)
-        self.name_entry.pack(fill='x',pady=5)
+        self.name_entry.pack(fill='x',pady=(8,5))
         ttk.Label(self.register_page,text='Example: Dela Cruz, Juan, Santos',style='Muted.TLabel').pack(anchor='w')
         ttk.Button(self.register_page,text='Back to login',style='Link.TButton',command=lambda:self.mode.set('login')).pack(anchor='w',pady=8)
         self.page_host = frame
@@ -76,12 +86,14 @@ class Desktop:
             entry.bind('<FocusIn>',lambda event:self.begin())
             entry.bind('<KeyPress>',lambda event:self.begin())
         actions = ttk.Frame(frame)
-        actions.pack(anchor='w',pady=12)
+        actions.pack(fill='x',pady=12)
         self.submit = ttk.Button(actions,text='Continue',style='Accent.TButton',command=self.identify)
-        self.submit.pack(side='left')
+        self.submit.pack(fill='x')
         self.page_anchor = actions
         self.mode.trace_add('write',self.show_identification_page)
+        self.sid.trace_add('write',self.update_student_id_state)
         self.show_identification_page()
+        self.update_student_id_state()
         ttk.Separator(frame).pack(fill='x',pady=(8,14))
         ttk.Label(frame,textvariable=self.status,wraplength=500,style='Muted.TLabel').pack(anchor='w',pady=8)
         self.warning = None
@@ -101,6 +113,16 @@ class Desktop:
         if self.gate:
             self.gate.hello(self.run_id)
 
+    def update_student_id_state(self, *_):
+        sid = self.sid.get()
+        valid = valid_student_id(sid)
+        self.id_count.set(f'{len(sid)}/10')
+        unavailable = self.busy or self.pending_start or self.session_id
+        self.submit.state(('!disabled',) if valid and not unavailable else ('disabled',))
+        style = 'IdCountDone.TLabel' if valid else 'IdCount.TLabel'
+        self.login_count.configure(style=style)
+        self.register_count.configure(style=style)
+
     def show_identification_page(self, *_):
         self.login_page.pack_forget()
         self.register_page.pack_forget()
@@ -112,6 +134,7 @@ class Desktop:
         self.root.title('Laboratory student registration' if registration else 'Laboratory student login')
         if not registration:
             self.name.set('')
+        self.update_student_id_state()
 
     def job(self, work, success, failure=None):
         if self.busy:
@@ -204,7 +227,7 @@ class Desktop:
             else:
                 self.root.withdraw()
                 self.show_session_window()
-                self.status.set(f'{self.student_name} · {self.config["computer_id"]}\nServer connected. ' + ('SIMULATION' if self.adapter.simulation else 'LIVE OS OPERATIONS'))
+                self.status.set('Server connected.')
         def failure(error):
             self.failed(error)
             if str(error).startswith(('400:','401:','403:','404:','409:')):
@@ -232,26 +255,35 @@ class Desktop:
             if not self.session_id:
                 self.status.set('Server connected. Register or enter your student ID.' if self.monitor_ok else 'Activity monitoring unavailable; sessions disabled.')
             else:
-                self.status.set(f'{self.student_name} · {self.config["computer_id"]}\nServer connected. ' + ('SIMULATION' if self.adapter.simulation else 'LIVE OS OPERATIONS'))
+                self.status.set('Server connected.')
         self.job(heartbeat_work,received)
 
     def show_session_window(self):
         if self.session_window is None:
             self.session_window = tk.Toplevel(self.root)
             self.session_window.title('Laboratory session status')
-            self.session_window.configure(background='#EFF4F2')
-            self.session_window.geometry('480x390')
-            self.session_window.minsize(440,360)
-            panel=ttk.Frame(self.session_window,padding=26)
-            panel.pack(fill='both',expand=True,padx=16,pady=16)
+            self.session_window.configure(background=BACKGROUND)
+            self.session_window.geometry('480x430')
+            self.session_window.minsize(440,390)
+            panel=ttk.Frame(self.session_window,padding=28,style='Card.TFrame')
+            panel.pack(fill='both',expand=True,padx=20,pady=20)
             ttk.Label(panel,text='SESSION ACTIVE',style='Eyebrow.TLabel').pack(anchor='w')
-            ttk.Label(panel,text="You're signed in",style='Heading.TLabel').pack(anchor='w',pady=(8,14))
-            ttk.Label(panel,textvariable=self.status,wraplength=385,style='Muted.TLabel').pack(anchor='w',pady=(0,18))
-            ttk.Separator(panel).pack(fill='x',pady=(0,16))
+            ttk.Label(panel,text="You're signed in",style='Heading.TLabel').pack(anchor='w',pady=(6,14))
+            identity=ttk.Frame(panel,padding=(16,12),style='Soft.TFrame')
+            identity.pack(fill='x',pady=(0,12))
+            details=ttk.Frame(identity,style='Soft.TFrame')
+            details.pack(side='left',fill='x',expand=True)
+            ttk.Label(details,text=self.student_name or 'Student',style='IdentityName.TLabel').pack(anchor='w')
+            ttk.Label(details,text=self.config['computer_id'],style='IdentityMeta.TLabel').pack(anchor='w',pady=(2,0))
+            ttk.Label(identity,text='Simulation' if self.adapter.simulation else 'Live',style='Chip.TLabel').pack(side='right',padx=(12,0))
+            connection=ttk.Frame(panel)
+            connection.pack(fill='x',pady=(0,18))
+            ttk.Label(connection,text='●',style='StatusDot.TLabel').pack(side='left',padx=(0,8))
+            ttk.Label(connection,textvariable=self.status,wraplength=350,style='SmallMuted.TLabel').pack(side='left',fill='x',expand=True)
             self.logout_button = ttk.Button(panel,text='Log out',style='Accent.TButton',command=self.manual_logout)
-            self.logout_button.pack(fill='x',pady=(0,12))
-            ttk.Label(panel,text='Save your work before ending your session.\nClosing this window minimizes it. Reopen it from the taskbar.',
-                      style='Muted.TLabel',wraplength=385).pack(anchor='w')
+            self.logout_button.pack(fill='x',pady=(0,16))
+            ttk.Label(panel,text='•  Save your work before ending your session.\n•  Closing this window minimizes it. Reopen it from the taskbar.',
+                      style='SmallMuted.TLabel',wraplength=385,justify='left').pack(anchor='w')
             self.session_window.protocol('WM_DELETE_WINDOW',self.session_window.iconify)
         self.session_window.deiconify()
         self.session_window.lift()
@@ -348,7 +380,7 @@ class Desktop:
             if self.warning is None:
                 self.warning = tk.Toplevel(self.root)
                 self.warning.title('Laboratory warning')
-                self.warning.configure(background='#EFF4F2')
+                self.warning.configure(background=BACKGROUND)
                 self.warning.attributes('-topmost',True)
                 self.warning.protocol('WM_DELETE_WINDOW',lambda:None)
                 panel=ttk.Frame(self.warning,padding=28)
@@ -423,7 +455,7 @@ class Desktop:
                 self.start_request()
             else:
                 self.heartbeat()
-        self.submit.configure(state='disabled' if self.busy or self.pending_start or self.session_id else 'normal')
+        self.update_student_id_state()
         if self.logout_button is not None:
             self.logout_button.configure(state='disabled' if self.busy or self.pending_end else 'normal')
         self.root.after(200,self.tick)
