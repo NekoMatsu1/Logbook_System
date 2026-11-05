@@ -4,7 +4,12 @@ A logbook for a computer lab. Students register their name and ID, then use thei
 
 ## Download
 
-**[Download for Windows](https://github.com/NekoMatsu1/Logbook_System/releases/download/v0.1.5-test.1/Logbook-Windows-x64.zip)** | [All releases](https://github.com/NekoMatsu1/Logbook_System/releases)
+**[Download for Windows](https://github.com/NekoMatsu1/Logbook_System/releases/download/v0.1.6-test.1/Logbook-Windows-x64.zip)** | [All releases](https://github.com/NekoMatsu1/Logbook_System/releases)
+
+Student registration requires a 10-digit ID and `Surname, FirstName, Middle Name`.
+Login and registration are separate screens. Update the hosted server before
+testing the new client. Existing invalid test records remain stored but cannot
+start new sessions; correct their names in Admin → Students or deactivate them.
 
 For admin access without repeated IP updates and required student desktop
 restriction setup, see [Operations](OPERATIONS.md).

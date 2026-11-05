@@ -2,6 +2,16 @@
 
 ## Functional audit (2026-10-29)
 
+Student access update (2026-11-05): exactly 10-digit IDs and the owner-specified
+three-part name format are enforced by client and server. Login/registration
+have separate screens; student, session-status and warning windows share a
+slate/teal theme. 194 local tests passed, including invalid inputs, no requests
+on invalid forms, legacy-record correction, separate-page visibility and record
+integrity. [Clean Windows/Linux build](https://github.com/NekoMatsu1/Logbook_System/actions/runs/41980706259)
+passed; the v0.1.6-test.1 archives passed checksum, runtime and credential-exclusion
+checks locally. The live host and existing PC installs still need updating.
+Native desktop enforcement remains a target-OS installation/acceptance task.
+
 Update (2026-11-05): the strict Windows installer supports the packaged app
 without a separate Python runtime. The download includes the installer/checker.
 [Clean CI build](https://github.com/NekoMatsu1/Logbook_System/actions/runs/41871782616)
