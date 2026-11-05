@@ -1,12 +1,37 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Administrator access</title><link rel="stylesheet" href="/static/style.css"></head>
-<body><main class="login-panel"><p class="eyebrow">Lab Logbook</p><h1>Administrator access</h1>
-{% if config.ADMIN_AUTH_MODE == 'password' %}
-<p>Sign in to monitor computers and view records.</p>
-{% if error %}<p role="alert">{{ error }}</p>{% endif %}
-<form method="post" action="/auth/login"><input type="hidden" name="csrf" value="{{ session.login_csrf }}">
-<label>Username<input name="username" autocomplete="username" maxlength="128" required></label>
-<label>Password<input type="password" name="password" autocomplete="current-password" maxlength="1024" required></label>
-<button>Sign in</button></form>
-{% else %}<p>Sign in with the administrator's configured Google account to view laboratory records.</p><p><a href="/auth/login">Continue with Google</a></p>{% endif %}
-<p>Student IDs and lab-PC credentials cannot open this dashboard.</p></main></body></html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>Lab Logbook · Administrator</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <script defer src="{{ url_for('static', filename='login.js') }}"></script>
+</head>
+<body class="login-screen">
+  <svg class="wave wave-tl" viewBox="0 0 420 220" aria-hidden="true"><path fill="currentColor" d="M0 0h420C330 30 300 110 210 150 140 180 60 170 0 215z"/></svg>
+  <svg class="wave wave-br" viewBox="0 0 580 260" aria-hidden="true"><path fill="currentColor" d="M580 0C500 70 470 150 360 190 270 222 130 215 0 260h580z"/></svg>
+  <header class="login-top">
+    <div class="brand"><span class="logo" aria-hidden="true">LB</span><strong>Lab Logbook</strong></div>
+    <div class="system-name"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg><span>Computer Laboratory Monitoring System</span></div>
+  </header>
+  <main class="login-main">
+    <section class="login-panel" aria-labelledby="login-title">
+      <div class="login-body">
+        <div class="login-head"><div class="logo" aria-hidden="true">LB</div><h1 id="login-title">Administrator Sign In</h1><p>Monitor computers and view records.</p></div>
+        {% if config.ADMIN_AUTH_MODE == 'password' %}
+          {% if error %}<p class="form-error" role="alert">{{ error }}</p>{% endif %}
+          <form id="login-form" method="post" action="/auth/login">
+            <input type="hidden" name="csrf" value="{{ session.login_csrf }}">
+            <label>Username<span class="field"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7"/></svg><input name="username" placeholder="Enter your username" autocomplete="username" maxlength="128" required autofocus></span></label>
+            <label>Password<span class="field has-eye"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg><input type="password" name="password" id="password" placeholder="Enter your password" autocomplete="current-password" maxlength="1024" required><button type="button" class="password-toggle" aria-label="Show password" aria-controls="password"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button></span></label>
+            <button class="signin"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3"/></svg>Sign In</button>
+          </form>
+        {% else %}
+          <p class="google-login">Sign in with the administrator's configured Google account.</p><a class="button-link" href="/auth/login">Continue with Google</a>
+        {% endif %}
+        <p class="login-note"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg><span>Student IDs and lab-PC credentials cannot open this dashboard.</span></p>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

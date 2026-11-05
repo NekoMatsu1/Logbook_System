@@ -1,27 +1,44 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="csrf-token" content="{{ session.csrf }}"><title>Lab logbook · {{ page }}</title>
-<link rel="stylesheet" href="{{ url_for('static',filename='style.css') }}"><script defer src="{{ url_for('static',filename='dashboard.js') }}"></script></head>
-<body><header><div class="brand"><div class="brand-mark" aria-hidden="true">LB</div><strong>Lab Logbook</strong></div><span>Administrator · Asia/Manila</span></header>
-<nav>{% for item in ['overview','records','students','settings','events'] %}<a {% if page==item %}aria-current="page"{% endif %} href="/admin/{{ item }}">{{ item|capitalize }}</a>{% endfor %}</nav>
-{% if config.ADMIN_AUTH_MODE in ('google','password') %}<form class="admin-signout" method="post" action="/auth/logout"><input type="hidden" name="csrf" value="{{ session.csrf }}"><button>Sign out administrator</button></form>{% endif %}
-<main><p class="eyebrow">Computer laboratory</p><h1>{{ page|capitalize }}</h1><p id="message" role="status"></p>
-{% if page=='overview' %}
-<p id="monitor-status" role="status">Monitoring connected. Updates every 10 seconds.</p>
-<div class="cards">{% for state in ['available','in-use','offline'] %}<article><b>{{ pcs|selectattr('status','equalto',state)|list|length }}</b><span>{{ state|capitalize }} computers</span></article>{% endfor %}<article><b>{{ active|length }}</b><span>Central active records</span></article></div>
-<p>Availability is based on agent heartbeats. An offline computer may still have an unfinished session. Refreshes every 10 seconds.</p>
-<h2>Laboratory computers</h2><div class="scroll"><table><tr><th>Computer</th><th>Status</th><th>Last connection</th><th>Student</th></tr>{% for pc in pcs %}<tr><td>{{ pc.computer_id }}</td><td><span class="status status-{{ pc.status }}">{{ pc.status }}</span></td><td>{{ pc.last_seen|manila }}</td><td>{% for s in active if s.computer_id==pc.computer_id %}{{ s.student_name }} ({{ s.student_id }}){% endfor %}</td></tr>{% else %}<tr><td colspan="4" class="empty">No computers connected yet. Connected lab PCs will appear here.</td></tr>{% endfor %}</table></div>
-{% elif page=='records' %}
-<form method="get" class="filters"><label>Student ID<input name="student" value="{{ request.args.get('student','') }}"></label><label>Computer ID<input name="computer" value="{{ request.args.get('computer','') }}"></label><label>Login date · Manila<input type="date" name="date" value="{{ request.args.get('date','') }}"></label><button>Filter</button><a href="{{ url_for('export',**request.args) }}">Export filtered CSV</a></form>
-<p>Login and logout times show when the server saved the session changes. They do not confirm Windows sign-out. Interrupted sessions keep unknown end times and durations.</p>
-<div class="scroll"><table><tr><th>Session</th><th>Student</th><th>Computer</th><th>Login</th><th>Logout</th><th>Seconds</th><th>Status / reason</th></tr>{% for r in records %}<tr><td>{{ r.session_id }}</td><td>{{ r.student_id }} · {{ r.student_name }}</td><td>{{ r.computer_id }}</td><td>{{ r.login_time|manila }}</td><td>{{ r.logout_time|manila }}</td><td>{{ r.duration if r.duration is not none else 'Unknown' }}</td><td>{{ r.status }} / {{ r.end_reason or '—' }}</td></tr>{% endfor %}</table></div>
-{% elif page=='students' %}
-<h2>Add registration</h2><form data-student data-create="true"><label>Student ID (10 digits)<input name="student_id" inputmode="numeric" pattern="[0-9]{10}" minlength="10" maxlength="10" title="Exactly 10 digits" required></label><label>Surname, FirstName, Middle Name<input name="name" placeholder="Dela Cruz, Juan, Santos" maxlength="128" required></label><button>Add student</button></form>
-<h2>Registered students</h2>{% for s in students %}<form data-student class="student"><input aria-label="Student ID" name="student_id" value="{{ s.student_id }}" readonly><input aria-label="Full name" name="name" value="{{ s.name }}" maxlength="128" required><label><input type="checkbox" name="active" {% if s.active %}checked{% endif %}> Active</label><button>Save</button></form>{% endfor %}
-{% elif page=='settings' %}
-<p>All timers use seconds. Blank per-computer fields inherit global values. Saving replaces the selected scope's overrides.</p>
-<form id="settings"><label>Scope<select name="scope"><option value="*">Global defaults</option>{% for pc in pcs %}<option>{{ pc.computer_id }}</option>{% endfor %}</select></label>
-{% for key,value in defaults.items() %}<label>{{ key.replace('_',' ')|capitalize }}{% if key.startswith('auto_') %}<select name="{{ key }}"><option value="">Inherit</option><option value="true" {% if value %}selected{% endif %}>Enabled</option><option value="false" {% if not value %}selected{% endif %}>Disabled</option></select>{% else %}<input name="{{ key }}" type="number" min="1" max="86400" value="{{ value }}">{% endif %}</label>{% endfor %}<button>Save settings</button></form>
-<h2>Stored computer overrides</h2>{% for r in overrides %}<p>{{ r.scope }}: <code>{{ r.value }}</code></p>{% endfor %}
-{% elif page=='events' %}<p>Latest 300 operational events. Communication failures reach this log only when the client can reconnect.</p><table><tr><th>Time</th><th>Computer</th><th>Event</th><th>Detail</th></tr>{% for e in events %}<tr><td>{{ e.time|manila }}</td><td>{{ e.computer_id or 'Administrator' }}</td><td>{{ e.kind }}</td><td>{{ e.detail }}</td></tr>{% endfor %}</table>
-{% endif %}</main></body></html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="csrf-token" content="{{ session.csrf }}">
+  <title>Lab Logbook · {{ page|capitalize }}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <script defer src="{{ url_for('static', filename='dashboard.js') }}"></script>
+</head>
+<body>
+  <header class="app-header">
+    <div class="brand"><span class="logo" aria-hidden="true">LB</span><strong>Lab Logbook</strong></div>
+    <div class="admin-user"><span>Administrator · Asia/Manila</span>{% if config.ADMIN_AUTH_MODE in ('google','password') %}<form method="post" action="/auth/logout"><input type="hidden" name="csrf" value="{{ session.csrf }}"><button class="button-ghost">Sign out administrator</button></form>{% endif %}</div>
+  </header>
+  <nav class="tabs" aria-label="Administrator sections">{% for item in ['overview','records','students','settings','events'] %}<a {% if page==item %}aria-current="page"{% endif %} href="/admin/{{ item }}">{{ item|capitalize }}</a>{% endfor %}</nav>
+  <main class="content">
+    <div class="page-head"><h1>{{ page|capitalize }}</h1><p id="message" role="status" aria-live="polite"></p></div>
+    {% if page=='overview' %}
+      <p id="monitor-status" class="live" role="status">Monitoring connected. Updates every 10 seconds.</p>
+      <dl class="cards stats">
+        {% for state in ['available','in-use','offline'] %}<div class="stat stat-{{ state }}"><dt>{{ state|capitalize }} computers</dt><dd>{{ pcs|selectattr('status','equalto',state)|list|length }}</dd></div>{% endfor %}
+        <div class="stat stat-records"><dt>Central active records</dt><dd>{{ active|length }}</dd></div>
+      </dl>
+      <p class="hint">Availability is based on agent heartbeats. An offline computer may still have an unfinished session.</p>
+      <section class="section"><h2>Laboratory computers</h2><div class="scroll table-wrap" data-overview-table><table><thead><tr><th>Computer</th><th>Status</th><th>Last connection</th><th>Student</th></tr></thead><tbody>{% for pc in pcs %}<tr><td>{{ pc.computer_id }}</td><td><span class="status status-{{ pc.status }}">{{ pc.status }}</span></td><td>{{ pc.last_seen|manila }}</td><td>{% for s in active if s.computer_id==pc.computer_id %}{{ s.student_name }} ({{ s.student_id }}){% else %}—{% endfor %}</td></tr>{% else %}<tr><td colspan="4" class="empty">No computers connected yet. Connected lab PCs will appear here.</td></tr>{% endfor %}</tbody></table></div></section>
+    {% elif page=='records' %}
+      <p class="hint">Login and logout times show when the server saved the session changes. They do not confirm Windows sign-out. Interrupted sessions keep unknown end times and durations.</p>
+      <form method="get" class="panel form-row filters"><label>Student ID<input name="student" inputmode="numeric" value="{{ request.args.get('student','') }}"></label><label>Computer ID<input name="computer" value="{{ request.args.get('computer','') }}"></label><label>Login date · Manila<input type="date" name="date" value="{{ request.args.get('date','') }}"></label><button>Filter</button><a href="{{ url_for('export',**request.args) }}">Export filtered CSV</a></form>
+      <div class="table-wrap"><table><thead><tr><th>Session</th><th>Student</th><th>Computer</th><th>Login</th><th>Logout</th><th class="number">Seconds</th><th>Status / reason</th></tr></thead><tbody>{% for r in records %}<tr><td>{{ r.session_id }}</td><td>{{ r.student_id }} · {{ r.student_name }}</td><td>{{ r.computer_id }}</td><td>{{ r.login_time|manila }}</td><td>{{ r.logout_time|manila }}</td><td class="number">{{ r.duration if r.duration is not none else 'Unknown' }}</td><td>{{ r.status }} / {{ r.end_reason or '—' }}</td></tr>{% else %}<tr><td colspan="7" class="empty">No records match these filters.</td></tr>{% endfor %}</tbody></table></div>
+    {% elif page=='students' %}
+      <section class="section first-section"><h2>Add registration</h2><form class="panel form-row create" data-student data-create="true"><label>Student ID (10 digits)<input name="student_id" inputmode="numeric" pattern="[0-9]{10}" minlength="10" maxlength="10" title="Exactly 10 digits" required></label><label>Surname, FirstName, Middle Name<input name="name" placeholder="Dela Cruz, Juan, Santos" maxlength="128" required></label><button>Add student</button></form></section>
+      <section class="section"><h2>Registered students</h2><div class="student-list">{% for s in students %}<form data-student class="student"><input class="student-id" aria-label="Student ID" name="student_id" value="{{ s.student_id }}" readonly><input class="student-name" aria-label="Full name" name="name" value="{{ s.name }}" maxlength="128" required><label class="check"><input type="checkbox" name="active" {% if s.active %}checked{% endif %}>Active</label><button>Save</button></form>{% else %}<div class="panel empty">No students registered yet.</div>{% endfor %}</div></section>
+    {% elif page=='settings' %}
+      <p class="hint">All timers use seconds. Blank per-computer fields inherit global values. Saving replaces the selected scope's overrides.</p>
+      <form id="settings" class="panel form-row settings"><label>Scope<select name="scope"><option value="*">Global defaults</option>{% for pc in pcs %}<option>{{ pc.computer_id }}</option>{% endfor %}</select></label>{% for key,value in defaults.items() %}<label>{{ key.replace('_',' ')|capitalize }}{% if key.startswith('auto_') %}<select name="{{ key }}"><option value="">Inherit</option><option value="true" {% if value %}selected{% endif %}>Enabled</option><option value="false" {% if not value %}selected{% endif %}>Disabled</option></select>{% else %}<input name="{{ key }}" type="number" min="1" max="86400" value="{{ value }}">{% endif %}</label>{% endfor %}<div class="actions"><button>Save settings</button></div></form>
+      <section class="section"><h2>Stored computer overrides</h2><ul class="overrides">{% for r in overrides %}<li><strong>{{ r.scope }}</strong>: <code>{{ r.value }}</code></li>{% else %}<li>No computer-specific overrides.</li>{% endfor %}</ul></section>
+    {% elif page=='events' %}
+      <p class="hint">Latest 300 operational events. Communication failures reach this log only when the client can reconnect.</p>
+      <div class="table-wrap"><table><thead><tr><th>Time</th><th>Computer</th><th>Event</th><th>Detail</th></tr></thead><tbody>{% for e in events %}<tr><td>{{ e.time|manila }}</td><td>{{ e.computer_id or 'Administrator' }}</td><td>{{ e.kind }}</td><td>{{ e.detail }}</td></tr>{% else %}<tr><td colspan="4" class="empty">No operational events recorded yet.</td></tr>{% endfor %}</tbody></table></div>
+    {% endif %}
+  </main>
+</body>
+</html>
