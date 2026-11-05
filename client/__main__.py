@@ -79,7 +79,6 @@ class Desktop:
         actions.pack(anchor='w',pady=12)
         self.submit = ttk.Button(actions,text='Continue',style='Accent.TButton',command=self.identify)
         self.submit.pack(side='left')
-        ttk.Button(actions,text='Cancel identification',command=self.cancel).pack(side='left',padx=8)
         self.page_anchor = actions
         self.mode.trace_add('write',self.show_identification_page)
         self.show_identification_page()
