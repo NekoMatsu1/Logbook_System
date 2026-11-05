@@ -116,9 +116,7 @@ def install_admin_auth(app):
             if request.method == 'GET':
                 return login_page()
             origin = request.headers.get('Origin')
-            if origin and not same_origin(origin, request.scheme, request.host):
-                if origin == 'null':
-                    abort(403,'Your browser hid the page origin. Open sign-in directly in a normal Edge/Chrome tab, not an embedded preview, then try again.')
+            if origin and origin != 'null' and not same_origin(origin, request.scheme, request.host):
                 try:
                     browser_scheme = urlsplit(origin).scheme
                 except ValueError:

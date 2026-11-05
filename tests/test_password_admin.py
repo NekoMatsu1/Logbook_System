@@ -151,7 +151,6 @@ def test_matching_origin_still_requires_csrf(secured):
 
 
 @pytest.mark.parametrize('origin,expected',[
-    ('null','browser hid the page origin'),
     ('http://localhost','HTTP page'),
     ('https://other.example','Browser: https://other.example'),
 ])
@@ -165,3 +164,21 @@ def test_origin_failure_explains_cause_without_exposing_credentials(secured,orig
     assert response.status_code==403
     assert expected in response.json['error']
     assert 'private-do-not-echo' not in response.text and csrf not in response.text
+
+
+def test_null_origin_is_accepted_with_valid_csrf(secured):
+    web=secured.test_client()
+    web.get('/auth/login',base_url='https://localhost')
+    with web.session_transaction() as session:
+        csrf=session['login_csrf']
+    response=web.post('/auth/login',base_url='https://localhost',headers={'Origin':'null'},
+        data=dict(username='owner',password='test-only passphrase!',csrf=csrf))
+    assert response.status_code==302
+    assert response.headers['Location'].endswith('/admin/overview')
+
+
+def test_null_origin_without_csrf_is_rejected(secured):
+    response=secured.test_client().post('/auth/login',base_url='https://localhost',
+        headers={'Origin':'null'},data=dict(username='owner',password='test-only passphrase!'))
+    assert response.status_code==403
+    assert 'form expired' in response.json['error']
