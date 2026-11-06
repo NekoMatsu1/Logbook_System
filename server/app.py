@@ -286,7 +286,11 @@ def create_app(config=None):
                                      "WHERE computer_id=? AND run_id=? AND status='active'", (g.computer, run)).rowcount
                 if count:
                     event('interruption', 'Client has no session; end time unknown', g.computer)
-            g.db.execute('UPDATE computers SET run_id=?,last_seen=? WHERE computer_id=?', (run, now(), g.computer))
+            stamp = now()
+            g.db.execute('UPDATE computers SET run_id=?,last_seen=? WHERE computer_id=?', (run, stamp, g.computer))
+            if active:
+                g.db.execute("UPDATE sessions SET last_heartbeat_at=? WHERE session_id=? AND computer_id=? "
+                             "AND run_id=? AND status='active'", (stamp, active, g.computer, run))
             # A healthy PC also lets the server reconcile another lab PC that has
             # stayed unreachable beyond the conservative interruption window.
             reconcile_stale_sessions()
@@ -323,8 +327,9 @@ def create_app(config=None):
             if not valid_student_name(student['name']):
                 abort(400, 'Registered name needs administrator correction. ' + STUDENT_NAME_ERROR)
             try:
-                g.db.execute('INSERT INTO sessions(session_id,student_id,student_name,computer_id,run_id,login_time,status) '
-                             "VALUES(?,?,?,?,?,?,'active')", (key, sid, student['name'], g.computer, run, now()))
+                stamp = now()
+                g.db.execute('INSERT INTO sessions(session_id,student_id,student_name,computer_id,run_id,login_time,last_heartbeat_at,status) '
+                             "VALUES(?,?,?,?,?,?,?,'active')", (key, sid, student['name'], g.computer, run, stamp, stamp))
             except sqlite3.IntegrityError:
                 abort(409, 'Computer already has an active session')
             event('login', f'{sid}: {key}', g.computer)
@@ -458,7 +463,7 @@ def create_app(config=None):
 
     @app.template_filter('manila')
     def manila(value):
-        return datetime.fromisoformat(value).astimezone(ZoneInfo('Asia/Manila')).strftime('%Y-%m-%d %H:%M:%S') if value else 'Unknown'
+        return datetime.fromisoformat(value).astimezone(ZoneInfo('Asia/Manila')).strftime('%Y-%m-%d %H:%M') if value else 'Unknown'
 
     @app.get('/')
     @admin
@@ -518,7 +523,8 @@ def create_app(config=None):
     @admin
     def export():
         rows = records()
-        columns = ['session_id','student_id','student_name','computer_id','login_time','logout_time','duration','end_reason','status']
+        columns = ['session_id','student_id','student_name','computer_id','login_time','last_heartbeat_at',
+                   'logout_time','duration','end_reason','status']
         output = io.StringIO(newline='')
         writer = csv.writer(output)
         writer.writerow(columns)

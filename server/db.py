@@ -40,7 +40,7 @@ def initialize(path):
         db.executescript(SCHEMA)
         db.execute('BEGIN IMMEDIATE')
         version = db.execute('SELECT version FROM schema_version').fetchone()[0]
-        if version not in (1, 2, 3, 4):
+        if version not in (1, 2, 3, 4, 5):
             raise RuntimeError('Unsupported database schema')
         if version == 1:
             migration = """
@@ -77,6 +77,16 @@ CREATE INDEX IF NOT EXISTS sessions_login_time ON sessions(login_time DESC);
 CREATE INDEX IF NOT EXISTS sessions_student_login_time ON sessions(student_id,login_time DESC);
 CREATE INDEX IF NOT EXISTS sessions_computer_login_time ON sessions(computer_id,login_time DESC);
 UPDATE schema_version SET version=4;
+"""
+            for statement in migration.split(';'):
+                if statement.strip():
+                    db.execute(statement)
+            version = 4
+        if version == 4:
+            migration = """
+ALTER TABLE sessions ADD COLUMN last_heartbeat_at TEXT;
+UPDATE sessions SET last_heartbeat_at=login_time WHERE last_heartbeat_at IS NULL;
+UPDATE schema_version SET version=5;
 """
             for statement in migration.split(';'):
                 if statement.strip():

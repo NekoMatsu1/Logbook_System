@@ -64,6 +64,7 @@ def test_long_offline_pc_is_interrupted_without_an_invented_end_time(web,app,aut
     assert record['status']=='interrupted'
     assert record['end_reason']=='heartbeat_timeout'
     assert record['logout_time'] is None and record['duration'] is None
+    assert record['last_heartbeat_at']==record['login_time']
 
 def test_unacknowledged_end(web,app,auth,ready):
     web.post('/api/sessions',headers=auth,json=ready)
@@ -130,6 +131,18 @@ def test_records_are_paginated_but_csv_export_remains_complete(web,auth,ready,ap
     assert 'page-124' in first and 'page-000' not in first
     assert 'page-000' in second
     assert len(list(csv.DictReader(io.StringIO(web.get('/admin/export.csv').text))))==125
+
+
+def test_records_use_short_session_reference_and_minute_precision(web,auth,ready,clock):
+    web.post('/api/sessions',headers=auth,json=ready)
+    clock.advance(10)
+    web.post('/api/heartbeat',headers=auth,json={'run_id':'run-1','active_session':'session-1'})
+    page=web.get('/admin/records').text
+    assert '#session-' in page
+    assert '>Duration</th>' in page and '>Seconds</th>' not in page
+    with connect(web.application.config['DATABASE']) as db:
+        row=db.execute('SELECT login_time,last_heartbeat_at FROM sessions WHERE session_id=?',('session-1',)).fetchone()
+    assert row['last_heartbeat_at'] != row['login_time']
 
 def test_all_dashboard_pages(web,ready):
     for page in ('overview','records','students','settings','events'):
