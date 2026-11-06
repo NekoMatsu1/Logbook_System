@@ -82,7 +82,7 @@ def main():
         serve(create_app({'DATABASE': args.database}), host=args.host, port=args.port,
               clear_untrusted_proxy_headers=False)
     else:
-        print(f'Initialized/migrated schema v2: {args.database}')
+        print(f'Initialized/migrated schema v3: {args.database}')
 
 if __name__ == '__main__':
     main()

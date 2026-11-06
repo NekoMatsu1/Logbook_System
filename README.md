@@ -4,7 +4,7 @@ A logbook for a computer lab. The administrator imports official student account
 
 ## Download
 
-**[Download for Windows](https://github.com/NekoMatsu1/Logbook_System/releases/download/v0.2.0-test.1/Logbook-Windows-x64.zip)** | [All releases](https://github.com/NekoMatsu1/Logbook_System/releases)
+**[Download for Windows](https://github.com/NekoMatsu1/Logbook_System/releases/download/v0.2.0-test.2/Logbook-Windows-x64.zip)** | [All releases](https://github.com/NekoMatsu1/Logbook_System/releases)
 
 The administrator imports a UTF-8 CSV with `student_id,surname,first_name,middle_name`.
 Students cannot self-register or change official identity fields. On first login,
