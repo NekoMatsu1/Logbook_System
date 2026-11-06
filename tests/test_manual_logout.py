@@ -14,12 +14,14 @@ def agent(clock):
     desktop.run_id = 'run-1'
     desktop.student_name = 'Test Student'
     desktop.busy = desktop.pending_end = False
+    desktop.pending_start = None
     desktop.session_window = desktop.logout_button = desktop.gate = None
     desktop.pending_events = []
     desktop.timers = Timers(clock)
     desktop.timers.start()
     desktop.status = SimpleNamespace(set=lambda value: setattr(desktop, 'message', value))
-    desktop.sid = desktop.name = SimpleNamespace(set=lambda value: None)
+    desktop.sid = desktop.password = desktop.password_confirm = desktop.identity = SimpleNamespace(set=lambda value: None)
+    desktop.show_identification_page = lambda stage='id': setattr(desktop, 'stage', stage)
     desktop.root = SimpleNamespace(deiconify=lambda: None)
     desktop.actions = []
     desktop.adapter = SimpleNamespace(simulation=True, action=desktop.actions.append)

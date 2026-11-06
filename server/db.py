@@ -37,7 +37,7 @@ def initialize(path):
         db.executescript(SCHEMA)
         db.execute('BEGIN IMMEDIATE')
         version = db.execute('SELECT version FROM schema_version').fetchone()[0]
-        if version not in (1, 2):
+        if version not in (1, 2, 3):
             raise RuntimeError('Unsupported database schema')
         if version == 1:
             migration = """
@@ -48,6 +48,21 @@ CREATE TABLE admin_identities(email TEXT PRIMARY KEY, subject TEXT NOT NULL UNIQ
 CREATE TABLE admin_sessions(token_hash TEXT PRIMARY KEY, subject TEXT NOT NULL,
  expires_at REAL NOT NULL);
 UPDATE schema_version SET version=2;
+"""
+            for statement in migration.split(';'):
+                if statement.strip():
+                    db.execute(statement)
+            version = 2
+        if version == 2:
+            migration = """
+ALTER TABLE students ADD COLUMN password_hash TEXT;
+CREATE TABLE student_access_tokens(token_hash TEXT PRIMARY KEY,
+ student_id TEXT NOT NULL REFERENCES students(student_id),
+ computer_id TEXT NOT NULL REFERENCES computers(computer_id), expires_at REAL NOT NULL);
+CREATE TABLE student_login_attempts(computer_id TEXT NOT NULL,
+ student_id TEXT NOT NULL, time REAL NOT NULL);
+CREATE INDEX student_login_attempt_time ON student_login_attempts(time);
+UPDATE schema_version SET version=3;
 """
             for statement in migration.split(';'):
                 if statement.strip():

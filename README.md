@@ -1,15 +1,14 @@
 # Lab Logbook
 
-A logbook for a computer lab. Students register their name and ID, then use their ID to sign in. The admin can see which computers are in use and view past records.
+A logbook for a computer lab. The administrator imports official student accounts, and students use their ID and private password to sign in. The admin can see which computers are in use and view past records.
 
 ## Download
 
-**[Download for Windows](https://github.com/NekoMatsu1/Logbook_System/releases/download/v0.1.6-test.1/Logbook-Windows-x64.zip)** | [All releases](https://github.com/NekoMatsu1/Logbook_System/releases)
+**[Download for Windows](https://github.com/NekoMatsu1/Logbook_System/releases/download/v0.2.0-test.1/Logbook-Windows-x64.zip)** | [All releases](https://github.com/NekoMatsu1/Logbook_System/releases)
 
-Student registration requires a 10-digit ID and `Surname, FirstName, Middle Name`.
-Login and registration are separate screens. Update the hosted server before
-testing the new client. Existing invalid test records remain stored but cannot
-start new sessions; correct their names in Admin → Students or deactivate them.
+The administrator imports a UTF-8 CSV with `student_id,surname,first_name,middle_name`.
+Students cannot self-register or change official identity fields. On first login,
+the student creates a private password; later logins require the ID and password.
 
 For admin access without repeated IP updates and required student desktop
 restriction setup, see [Operations](OPERATIONS.md).
@@ -30,12 +29,13 @@ The server needs monthly renewal in PythonAnywhere's Web tab. It can keep runnin
 ## What it does
 
 - Keeps student and session records on one server.
-- Shows the student name before sign-in.
+- Supports strict admin CSV account import and first-login password creation.
+- Stores only scrypt password hashes; the admin can reset but never view passwords.
 - Shows idle warnings and supports automatic sign-out.
 - Warning countdowns need **Yes, I'm still here** to cancel. Mouse movement and unrelated clicks do not dismiss them.
 - In simulation, students can use **Log out** in the session window without admin approval. A managed student can use the desktop's OS sign-out control; the agent records confirmed OS sign-out when available.
 - Students use a shared OS account; the supervised Logbook flow records their own sign-in. Enforcing sign-in before access to the normal desktop requires a separately installed OS-managed kiosk shell; the portable app and simulation do not lock down the PC.
-- Gives the admin a dashboard, filters, and CSV exports.
+- Gives the admin a dashboard, student password reset, filters, and CSV exports.
 - Runs on Windows 10/11. Linux Mint X11 setup is also available.
 
 ## Test status

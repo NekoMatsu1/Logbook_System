@@ -2,8 +2,12 @@ import threading
 import pytest
 from waitress import create_server
 from client.api import API, APIError
+from server.db import connect
 
 def test_real_http_workflow(app,clock):
+    with connect(app.config['DATABASE']) as db:
+        db.execute('INSERT INTO students(student_id,name) VALUES(?,?)',
+                   ('0000000007','Santos, Maria, Reyes'))
     server=create_server(app,host='127.0.0.1',port=0)
     thread=threading.Thread(target=server.run,daemon=True)
     thread.start()
@@ -11,9 +15,10 @@ def test_real_http_workflow(app,clock):
                  machine_token='test-token',allow_loopback_http=True))
     try:
         api.call('POST','/api/heartbeat',dict(run_id='transport',active_session=None))
-        api.call('POST','/api/register',dict(student_id='0000000007',name='Santos, Maria, Reyes'))
-        assert api.lookup('0000000007')['name']=='Santos, Maria, Reyes'
-        result=api.call('POST','/api/sessions',dict(student_id='0000000007',run_id='transport',session_id='http-session'))
+        assert api.lookup('0000000007')=={'student_id':'0000000007','setup_required':True}
+        login=api.call('POST','/api/student-auth/setup',dict(student_id='0000000007',password='Transportpass1'))
+        result=api.call('POST','/api/sessions',dict(student_id='0000000007',run_id='transport',
+            session_id='http-session',student_auth_token=login['student_auth_token']))
         assert result['status']=='active'
         clock.advance(50)
         result=api.call('POST','/api/sessions/http-session/end',dict(run_id='transport',reason='simulated_inactivity'))

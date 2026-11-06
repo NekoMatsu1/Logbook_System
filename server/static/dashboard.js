@@ -11,8 +11,10 @@ async function save(url, data) {
     if (!response.ok) throw new Error(result.error || 'Request failed');
     message.textContent = 'Saved.';
     message.classList.add('success');
+    return result;
   } catch (error) {
     message.textContent = error.message;
+    throw error;
   }
 }
 
@@ -23,7 +25,36 @@ document.querySelectorAll('[data-student]').forEach(form => form.addEventListene
     name: form.elements.name.value,
     active: form.dataset.create === 'true' || form.elements.active.checked,
     create: form.dataset.create === 'true'
-  });
+  }).catch(() => {});
+}));
+
+const studentImport = document.querySelector('#student-import');
+if (studentImport) studentImport.addEventListener('submit', async event => {
+  event.preventDefault();
+  const message = document.querySelector('#message');
+  message.classList.remove('success');
+  try {
+    const response = await fetch('/admin/students/import', {
+      method: 'POST',
+      headers: {'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').content},
+      body: new FormData(studentImport)
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'Import failed');
+    message.textContent = `${result.imported} student accounts imported.`;
+    message.classList.add('success');
+    setTimeout(() => location.reload(), 700);
+  } catch (error) {
+    message.textContent = error.message;
+  }
+});
+
+document.querySelectorAll('[data-password-reset]').forEach(button => button.addEventListener('click', async () => {
+  if (!confirm(`Reset the password for ${button.dataset.passwordReset}?`)) return;
+  try {
+    await save('/admin/students/password-reset', {student_id: button.dataset.passwordReset});
+    setTimeout(() => location.reload(), 700);
+  } catch (_) {}
 }));
 
 const settings = document.querySelector('#settings');
@@ -44,7 +75,7 @@ if (settings) {
       if (key === 'scope' || value === '') continue;
       values[key] = key.startsWith('auto_') ? value === 'true' : Number(value);
     }
-    save('/admin/settings', {scope: settings.elements.scope.value, values});
+    save('/admin/settings', {scope: settings.elements.scope.value, values}).catch(() => {});
   });
 }
 

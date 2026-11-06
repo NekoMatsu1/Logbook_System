@@ -2,6 +2,13 @@
 
 ## Functional audit (2026-10-29)
 
+Student account update (2026-11-06): administrator-only CSV/manual account
+creation, first-login password setup, hashed password verification, throttling,
+password reset, and one-time session authorization are implemented. Student
+self-registration is disabled. Schema v3 preserves existing accounts and
+records. Automated and real-window tests pass; the hosted server and each
+Windows client must be updated together before acceptance testing.
+
 Student access update (2026-11-05): exactly 10-digit IDs and the owner-specified
 three-part name format are enforced by client and server. Login/registration
 have separate screens; student, session-status and warning windows share a

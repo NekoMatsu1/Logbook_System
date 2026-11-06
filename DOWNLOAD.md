@@ -64,7 +64,7 @@ Hosting instructions: [PythonAnywhere](deploy/PYTHONANYWHERE.md) or [persistent 
 - Start the server and client on separate PCs; verify the configured HTTPS endpoint and computer ID. Register a test ID with leading zeros and confirm its name before login.
 - Check the central dashboard contains that PC and session. Verify another PC uses a distinct ID/configuration.
 - In simulation, verify idle warnings, cancellation, simulated logout and simulated shutdown. Confirm no real power action occurs.
-- Disconnect the network while a session is active: it continues; new logins/registrations must fail. Reconnect and check the central records.
+- Disconnect the network while a session is active: it continues; new password authentication/sessions must fail. Reconnect and check the central records.
 - Restart the client and server; verify existing records persist. Test a database backup restore separately.
 - Validate live sign-out, shutdown, native kiosk policies and recovery on a dedicated test PC before production. Secure greeter shutdown warnings remain incomplete; unattended production is not approved.
 

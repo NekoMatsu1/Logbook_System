@@ -1,6 +1,7 @@
 import hashlib
 from datetime import datetime, timezone, timedelta
 import pytest
+from werkzeug.security import generate_password_hash
 from server.app import create_app
 from server.db import connect
 
@@ -37,8 +38,14 @@ def auth():
 @pytest.fixture
 def ready(web,auth):
     web.post('/api/heartbeat',headers=auth,json=dict(run_id='run-1',active_session=None))
-    web.post('/api/register',headers=auth,json=dict(student_id='0000000123',name='Dela Cruz, Juan, Santos'))
-    return dict(student_id='0000000123',run_id='run-1',session_id='session-1')
+    with connect(web.application.config['DATABASE']) as db:
+        db.execute('INSERT INTO students(student_id,name,password_hash) VALUES(?,?,?)',
+                   ('0000000123','Dela Cruz, Juan, Santos',
+                    generate_password_hash('Studentpass1',method='scrypt:32768:8:1')))
+    login = web.post('/api/student-auth/login',headers=auth,
+                     json=dict(student_id='0000000123',password='Studentpass1'))
+    return dict(student_id='0000000123',run_id='run-1',session_id='session-1',
+                student_auth_token=login.json['student_auth_token'])
 
 @pytest.fixture
 def csrf(web):

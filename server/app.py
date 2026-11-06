@@ -14,11 +14,13 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 from urllib.parse import urlsplit
 from werkzeug.middleware.proxy_fix import ProxyFix
+from werkzeug.security import check_password_hash, generate_password_hash
 
 from flask import Flask, abort, g, jsonify, redirect, render_template, request, session
 from .db import connect, initialize
 from .admin_auth import install_admin_auth
-from common import DEFAULTS, valid_student_id, STUDENT_ID_ERROR, valid_student_name, STUDENT_NAME_ERROR
+from common import (DEFAULTS, valid_student_id, STUDENT_ID_ERROR, valid_student_name,
+                    STUDENT_NAME_ERROR, valid_student_password, STUDENT_PASSWORD_ERROR)
 
 def utcnow():
     return datetime.now(timezone.utc)
@@ -44,7 +46,7 @@ def create_app(config=None):
                       TRUSTED_HOSTS=os.getenv('LOGBOOK_TRUSTED_HOSTS', 'localhost,127.0.0.1,[::1]').split(','),
                       SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE='Strict',
                       SESSION_COOKIE_SECURE=os.getenv('LOGBOOK_HTTPS', '0') == '1',
-                      MAX_CONTENT_LENGTH=16384, NOW=utcnow)
+                      MAX_CONTENT_LENGTH=1048576, NOW=utcnow)
     if config:
         app.config.update(config)
     trusted_proxy = app.config.get('TRUSTED_PROXY_ADDRESS') or os.getenv('LOGBOOK_TRUSTED_PROXY')
@@ -163,35 +165,100 @@ def create_app(config=None):
     @app.errorhandler(403)
     @app.errorhandler(404)
     @app.errorhandler(409)
+    @app.errorhandler(413)
+    @app.errorhandler(429)
     def error(exc):
         return jsonify(error=exc.description), exc.code
+
+    def issue_student_access(student_id):
+        token = secrets.token_urlsafe(32)
+        stamp = app.config['NOW']().timestamp()
+        g.db.execute('DELETE FROM student_access_tokens WHERE expires_at<=? OR (student_id=? AND computer_id=?)',
+                     (stamp, student_id, g.computer))
+        g.db.execute('INSERT INTO student_access_tokens VALUES(?,?,?,?)',
+                     (hashlib.sha256(token.encode()).hexdigest(), student_id, g.computer, stamp + 120))
+        return token
+
+    def student_auth_throttle(student_id):
+        stamp = app.config['NOW']().timestamp()
+        with g.db:
+            g.db.execute('BEGIN IMMEDIATE')
+            g.db.execute('DELETE FROM student_login_attempts WHERE time<=?', (stamp - 60,))
+            count = g.db.execute('SELECT COUNT(*) FROM student_login_attempts WHERE computer_id=? AND student_id=?',
+                                 (g.computer, student_id)).fetchone()[0]
+            if count >= 10:
+                abort(429, 'Too many password attempts; wait one minute')
+            g.db.execute('INSERT INTO student_login_attempts VALUES(?,?,?)', (g.computer, student_id, stamp))
 
     @app.post('/api/register')
     @machine
     def register():
-        data = body()
-        sid, name = field(data, 'student_id', 64), field(data, 'name')
-        if not valid_student_name(name):
-            abort(400, STUDENT_NAME_ERROR)
-        try:
-            with g.db:
-                g.db.execute('INSERT INTO students(student_id,name) VALUES(?,?)', (sid, name))
-                event('registration', sid, g.computer)
-        except sqlite3.IntegrityError:
-            abort(409, 'Student ID already registered')
-        return jsonify(student_id=sid, name=name), 201
+        abort(403, 'Student self-registration is disabled. Ask the administrator to import the official account.')
 
     @app.get('/api/students/<sid>')
     @machine
     def lookup(sid):
         if not valid_student_id(sid):
             abort(400, STUDENT_ID_ERROR)
-        row = g.db.execute('SELECT student_id,name FROM students WHERE student_id=? AND active=1', (sid,)).fetchone()
+        row = g.db.execute('SELECT student_id,name,password_hash FROM students WHERE student_id=? AND active=1', (sid,)).fetchone()
         if not row:
             abort(404, 'Unknown or deactivated student ID')
         if not valid_student_name(row['name']):
             abort(400, 'Registered name needs administrator correction. ' + STUDENT_NAME_ERROR)
-        return jsonify(dict(row))
+        return jsonify(student_id=row['student_id'], setup_required=row['password_hash'] is None)
+
+    @app.post('/api/student-auth/setup')
+    @machine
+    def setup_student_password():
+        data = body()
+        sid, password = field(data, 'student_id', 64), data.get('password')
+        if not valid_student_password(password):
+            abort(400, STUDENT_PASSWORD_ERROR)
+        password_hash = generate_password_hash(password, method='scrypt:32768:8:1')
+        with g.db:
+            g.db.execute('BEGIN IMMEDIATE')
+            row = g.db.execute('SELECT name,password_hash FROM students WHERE student_id=? AND active=1',
+                               (sid,)).fetchone()
+            if not row:
+                abort(404, 'Unknown or deactivated student ID')
+            if not valid_student_name(row['name']):
+                abort(400, 'Registered name needs administrator correction. ' + STUDENT_NAME_ERROR)
+            if row['password_hash'] is not None:
+                abort(409, 'Password is already configured. Return to sign in.')
+            g.db.execute('UPDATE students SET password_hash=? WHERE student_id=?', (password_hash, sid))
+            token = issue_student_access(sid)
+            event('student_password_created', sid, g.computer)
+        return jsonify(student_id=sid, name=row['name'], student_auth_token=token)
+
+    @app.post('/api/student-auth/login')
+    @machine
+    def student_password_login():
+        data = body()
+        sid, password = field(data, 'student_id', 64), data.get('password')
+        if not isinstance(password, str) or len(password) > 128:
+            abort(401, 'Student ID or password is incorrect')
+        student_auth_throttle(sid)
+        row = g.db.execute('SELECT name,password_hash FROM students WHERE student_id=? AND active=1',
+                           (sid,)).fetchone()
+        if row and not valid_student_name(row['name']):
+            abort(400, 'Registered name needs administrator correction. ' + STUDENT_NAME_ERROR)
+        valid = bool(row and row['password_hash'])
+        if valid:
+            try:
+                valid = check_password_hash(row['password_hash'], password)
+            except ValueError:
+                valid = False
+        if not valid:
+            with g.db:
+                event('student_password_rejected', sid, g.computer)
+            abort(401, 'Student ID or password is incorrect')
+        with g.db:
+            g.db.execute('BEGIN IMMEDIATE')
+            g.db.execute('DELETE FROM student_login_attempts WHERE computer_id=? AND student_id=?',
+                         (g.computer, sid))
+            token = issue_student_access(sid)
+            event('student_password_login', sid, g.computer)
+        return jsonify(student_id=sid, name=row['name'], student_auth_token=token)
 
     @app.post('/api/heartbeat')
     @machine
@@ -233,6 +300,16 @@ def create_app(config=None):
                 if (old['computer_id'], old['student_id'], old['run_id']) != (g.computer, sid, run):
                     abort(409, 'Session request ID already used')
                 return jsonify(dict(old))
+            access = data.get('student_auth_token')
+            if not isinstance(access, str) or not access:
+                abort(401, 'Student password verification required')
+            token_hash = hashlib.sha256(access.encode()).hexdigest()
+            authorized = g.db.execute(
+                'SELECT 1 FROM student_access_tokens WHERE token_hash=? AND student_id=? AND computer_id=? AND expires_at>?',
+                (token_hash, sid, g.computer, app.config['NOW']().timestamp())).fetchone()
+            if not authorized:
+                abort(401, 'Student password verification expired; sign in again')
+            g.db.execute('DELETE FROM student_access_tokens WHERE token_hash=?', (token_hash,))
             pc = g.db.execute('SELECT run_id FROM computers WHERE computer_id=?', (g.computer,)).fetchone()
             if pc['run_id'] != run:
                 abort(409, 'Agent run changed; send heartbeat first')
@@ -362,6 +439,67 @@ def create_app(config=None):
             'Content-Disposition': 'attachment; filename="logbook.csv"', 'Cache-Control': 'no-store',
             'X-Content-Type-Options': 'nosniff'})
 
+    @app.get('/admin/students-template.csv')
+    @admin
+    def student_template():
+        return app.response_class(
+            'student_id,surname,first_name,middle_name\n2024035580,Dela Cruz,Juan,Santos\n',
+            mimetype='text/csv', headers={
+                'Content-Disposition':'attachment; filename="student-import-template.csv"',
+                'Cache-Control':'no-store', 'X-Content-Type-Options':'nosniff'})
+
+    @app.post('/admin/students/import')
+    @admin
+    def import_students():
+        def reject(status, detail, public):
+            with g.db:
+                event('admin_student_import_rejected', detail)
+            abort(status, public)
+        upload = request.files.get('file')
+        if not upload or not upload.filename.lower().endswith('.csv'):
+            reject(400, 'missing_csv', 'Select a CSV file')
+        try:
+            text = upload.read().decode('utf-8-sig')
+        except UnicodeDecodeError:
+            reject(400, 'invalid_encoding', 'CSV must use UTF-8 encoding')
+        reader = csv.DictReader(io.StringIO(text, newline=''))
+        normalize = lambda value: re.sub(r'[^a-z0-9]+', '_', (value or '').strip().lower()).strip('_')
+        headers = [normalize(value) for value in (reader.fieldnames or [])]
+        required = ['student_id', 'surname', 'first_name', 'middle_name']
+        if headers != required:
+            reject(400, 'invalid_headers', 'CSV columns must be: student_id, surname, first_name, middle_name')
+        rows, seen = [], set()
+        for number, raw in enumerate(reader, start=2):
+            if None in raw:
+                reject(400, f'extra_columns_row_{number}', f'Row {number}: too many columns')
+            values = {normalize(key): (value or '').strip() for key, value in raw.items()}
+            if not any(values.values()):
+                continue
+            sid = values['student_id']
+            name = f"{values['surname']}, {values['first_name']}, {values['middle_name']}"
+            if not valid_student_id(sid):
+                reject(400, f'invalid_id_row_{number}', f'Row {number}: {STUDENT_ID_ERROR}')
+            if not valid_student_name(name):
+                reject(400, f'invalid_name_row_{number}', f'Row {number}: {STUDENT_NAME_ERROR}')
+            if sid in seen:
+                reject(409, f'duplicate_csv_id_row_{number}', f'Row {number}: duplicate student ID in CSV')
+            seen.add(sid)
+            rows.append((sid, name))
+            if len(rows) > 5000:
+                reject(400, 'too_many_rows', 'CSV cannot contain more than 5,000 students')
+        if not rows:
+            reject(400, 'empty_csv', 'CSV contains no student records')
+        with g.db:
+            g.db.execute('BEGIN IMMEDIATE')
+            existing_ids = {row['student_id'] for row in g.db.execute('SELECT student_id FROM students')}
+            duplicate = next((sid for sid, _ in rows if sid in existing_ids), None)
+            if duplicate:
+                g.db.rollback()
+                reject(409, 'existing_student_id', f'Student ID {duplicate} already exists; nothing was imported')
+            g.db.executemany('INSERT INTO students(student_id,name,active,password_hash) VALUES(?,?,1,NULL)', rows)
+            event('admin_student_import', f'{len(rows)} accounts created')
+        return jsonify(imported=len(rows))
+
     @app.post('/admin/students')
     @admin
     def edit_student():
@@ -377,13 +515,27 @@ def create_app(config=None):
         with g.db:
             if data.get('create'):
                 try:
-                    g.db.execute('INSERT INTO students VALUES(?,?,?)', (sid, name, int(data.get('active', True))))
+                    g.db.execute('INSERT INTO students(student_id,name,active,password_hash) VALUES(?,?,?,NULL)',
+                                 (sid, name, int(data.get('active', True))))
                 except sqlite3.IntegrityError:
                     abort(409, 'Student ID already registered')
             else:
                 if not g.db.execute('UPDATE students SET name=?,active=? WHERE student_id=?', (name, int(data.get('active', True)), sid)).rowcount:
                     abort(404)
             event('admin_student_change', sid)
+        return jsonify(ok=True)
+
+    @app.post('/admin/students/password-reset')
+    @admin
+    def reset_student_password():
+        data = body()
+        sid = field(data, 'student_id', 64)
+        with g.db:
+            g.db.execute('BEGIN IMMEDIATE')
+            if not g.db.execute('UPDATE students SET password_hash=NULL WHERE student_id=?', (sid,)).rowcount:
+                abort(404, 'Unknown student ID')
+            g.db.execute('DELETE FROM student_access_tokens WHERE student_id=?', (sid,))
+            event('admin_student_password_reset', sid)
         return jsonify(ok=True)
 
     @app.post('/admin/settings')

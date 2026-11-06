@@ -3,6 +3,7 @@ import unicodedata
 
 STUDENT_ID_ERROR = 'Student ID must be exactly 10 digits (0-9). Letters, spaces and symbols are not allowed.'
 STUDENT_NAME_ERROR = 'Enter the full name as Surname, FirstName, Middle Name. Example: Dela Cruz, Juan, Santos.'
+STUDENT_PASSWORD_ERROR = 'Password must be 10-128 characters and contain at least one letter and one number.'
 
 def valid_student_id(value):
     return isinstance(value, str) and re.fullmatch(r'[0-9]{10}', value) is not None
@@ -28,6 +29,13 @@ def valid_student_name(value):
             else:
                 return False
     return True
+
+
+def valid_student_password(value):
+    return (isinstance(value, str) and 10 <= len(value) <= 128
+            and not any(ord(char) < 32 for char in value)
+            and any(char.isalpha() for char in value)
+            and any(char.isdigit() for char in value))
 
 DEFAULTS = dict(inactivity_seconds=300, logout_warning_seconds=60,
                 shutdown_wait_seconds=600, shutdown_warning_seconds=60,

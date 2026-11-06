@@ -54,7 +54,7 @@ def test_https_hsts_and_minimal_health(web):
     assert result.headers['Strict-Transport-Security']=='max-age=31536000'
 
 def test_stored_student_html_is_escaped(web,auth,app):
-    assert web.post('/api/register',headers=auth,json={'student_id':'0000000003','name':'<script>alert(1)</script>'}).status_code==400
+    assert web.post('/api/register',headers=auth,json={'student_id':'0000000003','name':'<script>alert(1)</script>'}).status_code==403
     from server.db import connect
     with connect(app.config['DATABASE']) as db:
         db.execute('INSERT INTO students(student_id,name) VALUES(?,?)',('0000000003','<script>alert(1)</script>'))

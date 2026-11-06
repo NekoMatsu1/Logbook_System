@@ -36,21 +36,26 @@ still requires the managed lab-account installation and actual target-PC tests.
 
 ## Student flow
 
-- A student registers once, then signs in with the student ID and confirms the name.
+- The administrator creates official student accounts individually or with a UTF-8 CSV containing `student_id,surname,first_name,middle_name`.
+- Students cannot self-register or change official identity fields.
+- On first login, a student enters the official ID and creates a private password. Future logins require both ID and password.
 - Student IDs must contain exactly 10 ASCII digits (0–9), with leading zeros preserved.
   Letters, symbols, internal spaces and alternate Unicode digit characters are
   rejected by both the client and server. The owner confirmed this length.
   Existing invalid test IDs cannot start new sessions; their stored history is
   retained, and administrators may deactivate them.
-- Registration requires `Surname, FirstName, Middle Name`, using comma-space
+- Imported and administrator-created accounts require `Surname, FirstName, Middle Name`, using comma-space
   separators and full name parts. Names may include letters with accents,
   multiword parts, and internal apostrophes/hyphens. Digits, missing parts,
   initials with periods, HTML and incorrect delimiters are rejected. Invalid
   existing names need admin correction before a new login; history is retained.
-- Login and registration have separate screens. The login screen has no name
-  field. Registration alone does not grant desktop access.
+- ID entry, password setup, and password login use separate screens. Account
+  creation alone does not grant desktop access.
+- Passwords are stored only as secure hashes. The administrator may reset a
+  password but cannot retrieve it. A short-lived, one-time authorization must
+  be consumed before the server creates a session.
 - A student may end their own session with **Log out**. No admin account, password, or admin approval is required.
-- Automatic logout follows the inactivity warning. Once a warning appears, only **Yes, I'm still here** cancels it. Mouse movement, typing, random clicks, or focusing the registration form must not dismiss a warning. This also applies to the interactive shutdown warning.
+- Automatic logout follows the inactivity warning. Once a warning appears, only **Yes, I'm still here** cancels it. Mouse movement, typing, random clicks, or focusing the login form must not dismiss a warning. This also applies to the interactive shutdown warning.
 - Closing the portable session window minimizes it; it does not end the session.
 - An enrolled PC uses its own machine credential. That credential is not admin permission.
 - Manual logout waits for the server to save the record. If the server is unavailable, show the actual failure and keep the session active for retry; never claim an unsaved logout succeeded.
@@ -73,7 +78,7 @@ still requires the managed lab-account installation and actual target-PC tests.
 Keep the working flow. Use a minimal, stylish, comfortable slate/teal palette,
 clear text, consistent spacing, and obvious login/logout actions. Keep warning
 and error states readable and distinct. The web dashboard has received this
-styling; the native student login, registration, active-session and warning
+styling; the native student login, password setup, active-session and warning
 windows now use the corresponding slate/teal theme as well.
 
 ## Deployment status

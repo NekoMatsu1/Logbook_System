@@ -3,19 +3,22 @@ import io
 from concurrent.futures import ThreadPoolExecutor
 from server.db import connect
 
-def test_registration_lookup(web,auth):
+def test_admin_registration_lookup(web,auth,csrf):
     data = dict(student_id='0000000123',name='Cruz, Juan, Santos')
-    assert web.post('/api/register',headers=auth,json=data).status_code == 201
-    assert web.post('/api/register',headers=auth,json=data).status_code == 409
-    assert web.get('/api/students/0000000123',headers=auth).json == data
+    assert web.post('/api/register',headers=auth,json=data).status_code == 403
+    assert web.post('/admin/students',headers=csrf,json=data|{'active':True,'create':True}).status_code == 200
+    assert web.post('/admin/students',headers=csrf,json=data|{'active':True,'create':True}).status_code == 409
+    assert web.get('/api/students/0000000123',headers=auth).json == {
+        'student_id':'0000000123','setup_required':True}
     assert web.get('/api/students/0000000124',headers=auth).status_code == 404
-    assert web.post('/api/register',headers=auth,json=dict(student_id=123,name='Name')).status_code == 400
+    assert web.post('/admin/students',headers=csrf,
+                    json=dict(student_id=123,name='Name',active=True,create=True)).status_code == 400
 
 def test_idempotent_start_end(web,auth,ready,clock):
     first = web.post('/api/sessions',headers=auth,json=ready)
     assert first.status_code == 201
     assert web.post('/api/sessions',headers=auth,json=ready).json == first.json
-    assert web.post('/api/sessions',headers=auth,json=ready|{'session_id':'another'}).status_code == 409
+    assert web.post('/api/sessions',headers=auth,json=ready|{'session_id':'another'}).status_code == 401
     clock.advance(25)
     end = dict(run_id='run-1',reason='inactivity')
     result = web.post('/api/sessions/session-1/end',headers=auth,json=end).json
@@ -30,7 +33,7 @@ def test_concurrent_starts(app,auth,ready):
             return client.post('/api/sessions',headers=auth,json=ready|{'session_id':f'concurrent-{index}'}).status_code
     with ThreadPoolExecutor(max_workers=4) as pool:
         results = list(pool.map(start,range(4)))
-    assert sorted(results) == [201,409,409,409]
+    assert sorted(results) == [201,401,401,401]
 
 def test_interruption_not_network_loss(web,app,auth,ready,clock):
     web.post('/api/sessions',headers=auth,json=ready)
@@ -87,7 +90,7 @@ def test_csv_filters_and_formula_protection(web,auth,ready,csrf,clock,app):
     assert len(rows)==1 and rows[0]['student_name']=='Dela Cruz, Juan, Santos'
     assert len(list(csv.DictReader(io.StringIO(web.get('/admin/export.csv?student=absent').text))))==0
     web.post('/api/sessions/session-1/end',headers=auth,json=dict(run_id='run-1',reason='inactivity'))
-    assert web.post('/api/sessions',headers=auth,json=ready|{'session_id':'session-2'}).status_code==400
+    assert web.get('/api/students/0000000123',headers=auth).status_code==400
     with connect(app.config['DATABASE']) as db:
         db.execute("INSERT INTO sessions(session_id,student_id,student_name,computer_id,run_id,login_time,status) VALUES(?,?,?,?,?,?,?)",
             ('old-session','0000000123','=1+1','LAB-PC-01','run-1',app.config['NOW']().isoformat(),'interrupted'))
@@ -128,7 +131,9 @@ def test_retired_run_cannot_interrupt_newer_session(web,auth,ready):
 
 def test_manila_date_boundary(web,auth,ready,clock):
     clock.advance(16*3600) # UTC 16:00 is next calendar day in Manila.
-    web.post('/api/sessions',headers=auth,json=ready)
+    login=web.post('/api/student-auth/login',headers=auth,
+                   json={'student_id':'0000000123','password':'Studentpass1'})
+    web.post('/api/sessions',headers=auth,json=ready|{'student_auth_token':login.json['student_auth_token']})
     assert 'session-1' not in web.get('/admin/export.csv?date=2026-10-23').text
     assert 'session-1' in web.get('/admin/export.csv?date=2026-10-24').text
 

@@ -2,9 +2,14 @@ Portable laboratory logbook client for controlled testing on Windows 10/11 x64.
 
 New in this release:
 
+- Administrators import official student accounts from a strict UTF-8 CSV or add one account manually. Invalid and duplicate imports are rejected atomically and logged.
+- Student self-registration is disabled. First login creates a private password; later logins require ID and password.
+- Passwords use scrypt hashes. Failed attempts are throttled, and a short-lived one-time authorization is required before a session can start.
+- Administrators can reset but never view student passwords. Existing data is preserved by the schema v3 migration.
+
 - Student IDs must contain exactly 10 digits. Invalid input shows a clear error before a request is sent; server checks also apply to older clients. Leading zeros are preserved.
-- Registration requires `Surname, FirstName, Middle Name`. Invalid existing records need admin correction before a new login; historical records are retained.
-- Login and registration use separate screens. Student access, active-session and warning windows share a new slate/teal style with readable text and clear actions. Test mode explicitly says it does not block the desktop.
+- Imported accounts require `Surname, FirstName, Middle Name`. Invalid existing records need admin correction before a new login; historical records are retained.
+- ID entry and password screens are separate. Student access, active-session and warning windows share a minimal teal style with readable text and clear actions. Test mode explicitly says it does not block the desktop.
 
 - The Windows download now includes the strict-shell installer and read-only setup checker. The installer supports the bundled app without a separate Python installation, checks edition before making changes, and marks setup complete only after Windows accepts the managed shell. Enterprise/Education/IoT Enterprise and a separate standard lab account are still required; Home/Pro remain unsupported by this installer.
 

@@ -14,7 +14,7 @@ from .state import Timers
 from .instance import acquire
 from .credentials import load_config
 from .theme import install as install_theme, BACKGROUND
-from common import valid_student_id, STUDENT_ID_ERROR, valid_student_name, STUDENT_NAME_ERROR
+from common import valid_student_id, STUDENT_ID_ERROR, valid_student_password, STUDENT_PASSWORD_ERROR
 
 class Desktop:
     def __init__(self, root, config, gate=None):
@@ -40,8 +40,10 @@ class Desktop:
         self.next_heartbeat = 0
         self.pool = ThreadPoolExecutor(max_workers=1)
         self.results = queue.Queue()
-        self.mode = tk.StringVar(value='login')
-        self.sid, self.name = tk.StringVar(), tk.StringVar()
+        self.stage = 'id'
+        self.sid = tk.StringVar()
+        self.password, self.password_confirm = tk.StringVar(), tk.StringVar()
+        self.identity = tk.StringVar()
         self.id_count = tk.StringVar(value='0/10')
         self.status = tk.StringVar(value='Connecting to central server…')
         root.title('Laboratory student logbook')
@@ -56,7 +58,8 @@ class Desktop:
         ttk.Label(frame,text=config['computer_id'],style='Title.TLabel').pack(anchor='w',pady=(4,14))
         ttk.Label(frame,text='Test mode: desktop access is not blocked; power actions disabled.' if self.adapter.simulation else 'Managed student access · Live OS operations',style='Notice.TLabel',wraplength=400).pack(fill='x',pady=(0,20))
         self.login_page = ttk.Frame(frame)
-        self.register_page = ttk.Frame(frame)
+        self.password_page = ttk.Frame(frame)
+        self.setup_page = ttk.Frame(frame)
         ttk.Label(self.login_page,text='Welcome back',style='Heading.TLabel').pack(anchor='w',pady=(0,4))
         ttk.Label(self.login_page,text='Enter your student ID to begin a session.',style='Muted.TLabel').pack(anchor='w',pady=(0,18))
         ttk.Label(self.login_page,text='Student ID (exactly 10 digits)').pack(anchor='w')
@@ -67,32 +70,37 @@ class Desktop:
         self.login_id_entry.pack(fill='x')
         self.login_count = ttk.Label(login_id,textvariable=self.id_count,style='IdCount.TLabel')
         self.login_count.place(relx=1,rely=.5,x=-14,anchor='e')
-        ttk.Button(self.login_page,text='New student? Go to registration',style='Link.TButton',command=lambda:self.mode.set('register')).pack(anchor='w',pady=(10,6))
-        ttk.Label(self.register_page,text='Create your student record',style='Heading.TLabel').pack(anchor='w',pady=(0,12))
-        ttk.Label(self.register_page,text='Student ID (exactly 10 digits)').pack(anchor='w')
-        register_id = ttk.Frame(self.register_page,style='Soft.TFrame')
-        register_id.pack(fill='x',pady=(8,12))
-        self.register_id_entry = ttk.Entry(register_id,textvariable=self.sid,style='Id.TEntry',validate='key',validatecommand=id_validation)
-        self.register_id_entry.pack(fill='x')
-        self.register_count = ttk.Label(register_id,textvariable=self.id_count,style='IdCount.TLabel')
-        self.register_count.place(relx=1,rely=.5,x=-14,anchor='e')
-        ttk.Label(self.register_page,text='Full name: Surname, FirstName, Middle Name').pack(anchor='w')
-        self.name_entry = ttk.Entry(self.register_page,textvariable=self.name)
-        self.name_entry.pack(fill='x',pady=(8,5))
-        ttk.Label(self.register_page,text='Example: Dela Cruz, Juan, Santos',style='Muted.TLabel').pack(anchor='w')
-        ttk.Button(self.register_page,text='Back to login',style='Link.TButton',command=lambda:self.mode.set('login')).pack(anchor='w',pady=8)
+        ttk.Label(self.login_page,text='Your account is created by the administrator.',style='Muted.TLabel').pack(anchor='w',pady=(10,0))
+
+        ttk.Label(self.password_page,text='Enter your password',style='Heading.TLabel').pack(anchor='w',pady=(0,4))
+        ttk.Label(self.password_page,textvariable=self.identity,style='Muted.TLabel').pack(anchor='w',pady=(0,18))
+        ttk.Label(self.password_page,text='Password').pack(anchor='w')
+        self.password_entry = ttk.Entry(self.password_page,textvariable=self.password,show='•')
+        self.password_entry.pack(fill='x',pady=(8,6))
+        ttk.Button(self.password_page,text='Use a different student ID',style='Link.TButton',command=self.reset_identification).pack(anchor='w',pady=(6,0))
+
+        ttk.Label(self.setup_page,text='Create your password',style='Heading.TLabel').pack(anchor='w',pady=(0,4))
+        ttk.Label(self.setup_page,textvariable=self.identity,style='Muted.TLabel').pack(anchor='w',pady=(0,14))
+        ttk.Label(self.setup_page,text='Use 10-128 characters with at least one letter and number.',style='SmallMuted.TLabel',wraplength=400).pack(anchor='w',pady=(0,12))
+        ttk.Label(self.setup_page,text='New password').pack(anchor='w')
+        self.setup_password_entry = ttk.Entry(self.setup_page,textvariable=self.password,show='•')
+        self.setup_password_entry.pack(fill='x',pady=(8,12))
+        ttk.Label(self.setup_page,text='Confirm password').pack(anchor='w')
+        self.confirm_entry = ttk.Entry(self.setup_page,textvariable=self.password_confirm,show='•')
+        self.confirm_entry.pack(fill='x',pady=(8,6))
+        ttk.Button(self.setup_page,text='Use a different student ID',style='Link.TButton',command=self.reset_identification).pack(anchor='w',pady=(6,0))
         self.page_host = frame
-        for entry in (self.login_id_entry,self.register_id_entry,self.name_entry):
-            entry.bind('<FocusIn>',lambda event:self.begin())
+        for entry in (self.login_id_entry,self.password_entry,self.setup_password_entry,self.confirm_entry):
             entry.bind('<KeyPress>',lambda event:self.begin())
         actions = ttk.Frame(frame)
         actions.pack(fill='x',pady=12)
         self.submit = ttk.Button(actions,text='Continue',style='Accent.TButton',command=self.identify)
         self.submit.pack(fill='x')
         self.page_anchor = actions
-        self.mode.trace_add('write',self.show_identification_page)
         self.sid.trace_add('write',self.update_student_id_state)
-        self.show_identification_page()
+        self.password.trace_add('write',self.update_student_id_state)
+        self.password_confirm.trace_add('write',self.update_student_id_state)
+        self.show_identification_page('id')
         self.update_student_id_state()
         ttk.Separator(frame).pack(fill='x',pady=(8,14))
         ttk.Label(frame,textvariable=self.status,wraplength=500,style='Muted.TLabel').pack(anchor='w',pady=8)
@@ -115,26 +123,40 @@ class Desktop:
 
     def update_student_id_state(self, *_):
         sid = self.sid.get()
-        valid = valid_student_id(sid)
+        if self.stage == 'id':
+            valid = valid_student_id(sid)
+        elif self.stage == 'password':
+            valid = bool(self.password.get())
+        else:
+            valid = (valid_student_password(self.password.get())
+                     and self.password.get() == self.password_confirm.get())
         self.id_count.set(f'{len(sid)}/10')
         unavailable = self.busy or self.pending_start or self.session_id
         self.submit.state(('!disabled',) if valid and not unavailable else ('disabled',))
         style = 'IdCountDone.TLabel' if valid else 'IdCount.TLabel'
         self.login_count.configure(style=style)
-        self.register_count.configure(style=style)
 
-    def show_identification_page(self, *_):
-        self.login_page.pack_forget()
-        self.register_page.pack_forget()
-        registration = self.mode.get() == 'register'
-        page = self.register_page if registration else self.login_page
+    def show_identification_page(self, stage='id'):
+        self.stage = stage
+        for candidate in (self.login_page, self.password_page, self.setup_page):
+            candidate.pack_forget()
+        page = {'id':self.login_page, 'password':self.password_page, 'setup':self.setup_page}[stage]
         page.pack(fill='x',before=self.page_anchor)
-        self.id_entry = self.register_id_entry if registration else self.login_id_entry
-        self.submit.configure(text='Register' if registration else 'Log in')
-        self.root.title('Laboratory student registration' if registration else 'Laboratory student login')
-        if not registration:
-            self.name.set('')
+        self.id_entry = self.login_id_entry
+        self.submit.configure(text={'id':'Continue', 'password':'Sign in', 'setup':'Create password and sign in'}[stage])
+        self.root.title('Laboratory student login')
+        (self.login_id_entry if stage == 'id' else self.password_entry).focus_set()
         self.update_student_id_state()
+
+    def reset_identification(self):
+        if self.busy or self.pending_start:
+            return
+        self.sid.set('')
+        self.password.set('')
+        self.password_confirm.set('')
+        self.identity.set('')
+        self.show_identification_page('id')
+        self.status.set('Enter your administrator-issued student ID.')
 
     def job(self, work, success, failure=None):
         if self.busy:
@@ -163,8 +185,7 @@ class Desktop:
             self.status.set('Wait for the current server operation to resolve.')
             return
         self.timers.cancel_identify()
-        self.sid.set('')
-        self.name.set('')
+        self.reset_identification()
         self.status.set('Identification cancelled; remaining shutdown wait resumed.')
 
     def identify(self):
@@ -183,30 +204,43 @@ class Desktop:
             messagebox.showerror('Invalid student ID', STUDENT_ID_ERROR, parent=self.root)
             self.id_entry.focus_set()
             return
-        if self.mode.get() == 'register':
-            name = self.name.get().strip()
-            if not valid_student_name(name):
-                self.status.set(STUDENT_NAME_ERROR)
-                messagebox.showerror('Invalid student name', STUDENT_NAME_ERROR, parent=self.root)
-                self.name_entry.focus_set()
-                return
-            def registered(result):
-                self.status.set(f'Registered {result["name"]}. Select Login to start.')
-                self.mode.set('login')
-            self.job(lambda:self.api.call('POST','/api/register',dict(student_id=sid,name=name)),registered)
-        else:
+        if self.stage == 'id':
             def found(result):
                 if not self.timers.identifying:
                     self.status.set('Identification expired; continue again.')
                     return
-                confirmed = messagebox.askyesno('Confirm student',f'{result["name"]}\nStudent ID: {result["student_id"]}\nStart session?',parent=self.root)
-                if confirmed and self.timers.identifying:
-                    self.pending_start = dict(student_id=sid,run_id=self.run_id,session_id=str(uuid.uuid4()))
-                    self.timers.blocked = True
-                    self.start_request()
-                else:
-                    self.cancel()
+                self.identity.set(f'Student ID · {result["student_id"]}')
+                self.password.set('')
+                self.password_confirm.set('')
+                stage = 'setup' if result['setup_required'] else 'password'
+                self.show_identification_page(stage)
+                self.status.set('Create your private password.' if stage == 'setup' else 'Enter your password.')
             self.job(lambda:self.api.lookup(sid),found)
+            return
+        password = self.password.get()
+        if self.stage == 'setup':
+            if not valid_student_password(password):
+                messagebox.showerror('Invalid password', STUDENT_PASSWORD_ERROR, parent=self.root)
+                return
+            if password != self.password_confirm.get():
+                messagebox.showerror('Passwords do not match','Enter the same password in both fields.',parent=self.root)
+                return
+        path = '/api/student-auth/setup' if self.stage == 'setup' else '/api/student-auth/login'
+        attempted_stage = self.stage
+        def authenticated(result):
+            self.password.set('')
+            self.password_confirm.set('')
+            self.pending_start = dict(student_id=sid,run_id=self.run_id,session_id=str(uuid.uuid4()),
+                                      student_auth_token=result['student_auth_token'])
+            self.timers.blocked = True
+            self.start_request()
+        def rejected(error):
+            self.status.set(str(error))
+            self.password.set('')
+            self.password_confirm.set('')
+            messagebox.showerror('Sign in failed',str(error),parent=self.root)
+            (self.setup_password_entry if attempted_stage == 'setup' else self.password_entry).focus_set()
+        self.job(lambda:self.api.call('POST',path,dict(student_id=sid,password=password)),authenticated,rejected)
 
     def start_request(self):
         def started(result):
@@ -340,8 +374,7 @@ class Desktop:
             self.timers.blocked = False
             self.timers.reset()
             self.root.deiconify()
-            self.sid.set('')
-            self.name.set('')
+            self.reset_identification()
             record_status = ('Session ending saved. ' if saved else
                              'Session was already interrupted; its exact end time remains unknown. ' if interrupted else
                              'End NOT saved; central record requires review. ')
@@ -444,8 +477,7 @@ class Desktop:
                 self.status.set(f'Shutdown request failed: {error}')
                 self.pending_events.append(dict(kind='os_operation_failure',detail=f'Shutdown request failed: {error}'[:1000]))
         elif action == 'identification_expired':
-            self.sid.set('')
-            self.name.set('')
+            self.reset_identification()
             self.root.focus_set()
             self.status.set('Identification timed out; remaining shutdown wait resumed.')
         self.show_warning()

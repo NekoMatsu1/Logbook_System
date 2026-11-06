@@ -3,6 +3,7 @@ import os
 import time
 import pytest
 from client.api import APIError
+from server.db import connect
 
 pytestmark=pytest.mark.skipif(os.getenv('LOGBOOK_GUI_TEST')!='1',reason='Set LOGBOOK_GUI_TEST=1 with an interactive desktop')
 
@@ -15,7 +16,7 @@ def desktop_root():
 
 @pytest.mark.parametrize('gated',[False,True])
 @pytest.mark.parametrize('manual',[False,True])
-def test_tk_registration_login_and_simulated_logout(app,clock,monkeypatch,gated,manual,desktop_root):
+def test_tk_first_password_login_and_simulated_logout(app,clock,monkeypatch,gated,manual,desktop_root):
     import tkinter as tk
     import client.__main__ as desktop
     class TestAPI:
@@ -34,6 +35,9 @@ def test_tk_registration_login_and_simulated_logout(app,clock,monkeypatch,gated,
         def attach_signout(self,*args): return False
         def action(self,name): self.actions.append(name)
     adapter=FakeAdapter()
+    with connect(app.config['DATABASE']) as db:
+        db.execute('INSERT INTO students(student_id,name) VALUES(?,?)',
+                   ('0000000042','Reyes, Ana, Santos'))
     class FakeLink:
         def __init__(self): self.messages=[]; self.warning_state=None; self.locked=False; self.granted=None
         def hello(self,run): self.run=run
@@ -63,7 +67,8 @@ def test_tk_registration_login_and_simulated_logout(app,clock,monkeypatch,gated,
     try:
         pump_until(lambda:agent.connected and not agent.busy)
         assert agent.login_page.winfo_ismapped()
-        assert not agent.register_page.winfo_ismapped()
+        assert not agent.password_page.winfo_ismapped()
+        assert not agent.setup_page.winfo_ismapped()
         assert agent.id_count.get() == '0/10' and 'disabled' in agent.submit.state()
         pending, button_text = [root], []
         while pending:
@@ -75,17 +80,13 @@ def test_tk_registration_login_and_simulated_logout(app,clock,monkeypatch,gated,
         agent.sid.set('0000000042')
         root.update_idletasks()
         assert agent.id_count.get() == '10/10' and 'disabled' not in agent.submit.state()
-        agent.name.set('Reyes, Ana, Santos')
-        agent.mode.set('register')
-        root.update_idletasks()
-        assert agent.register_page.winfo_ismapped()
-        assert not agent.login_page.winfo_ismapped()
         agent.identify()
         pump_until(lambda:not agent.busy)
-        assert 'Registered' in agent.status.get()
         root.update_idletasks()
-        assert agent.login_page.winfo_ismapped()
-        assert not agent.name_entry.winfo_ismapped()
+        assert agent.setup_page.winfo_ismapped()
+        assert not agent.login_page.winfo_ismapped()
+        agent.password.set('Studentpass1')
+        agent.password_confirm.set('Studentpass1')
         agent.identify()
         pump_until(lambda:agent.session_id is not None)
         assert agent.timers.active
