@@ -2,6 +2,10 @@ Portable laboratory logbook client for controlled testing on Windows 10/11 x64.
 
 New in this release:
 
+- Administrators can permanently delete an unused student account from the Students page. Accounts with saved session records cannot be deleted; deactivate them instead so official logbook records remain intact.
+- Starting Logbook a second time now brings the existing student window forward. A wrong-PC, missing, locked, or damaged client configuration gives a safe, specific recovery message without exposing credentials.
+- `admin-interface.html` is a complete one-file local admin UI preview with sign-in, Overview, Records, Students, Settings, Events, CSV import, password reset, and delete-account controls for design work.
+
 - Administrators import official student accounts from a strict UTF-8 CSV or add one account manually. Invalid and duplicate imports are rejected atomically and logged.
 - Student self-registration is disabled. First login creates a private password; later logins require ID and password.
 - Passwords use scrypt hashes. Failed attempts are throttled, and a short-lived one-time authorization is required before a session can start.
