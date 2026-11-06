@@ -255,7 +255,7 @@ def install_admin_auth(app):
                 abort(403,'Cross-site administrator requests are forbidden')
             if request.method != 'GET':
                 origin = request.headers.get('Origin')
-                if origin and not trusted_origin(
+                if request.path != '/auth/logout' and origin and not trusted_origin(
                         origin, request.scheme, request.host, app.config['TRUSTED_HOSTS']):
                     abort(403,'Administrator origin mismatch')
                 expected, supplied = session.get('csrf',''), request.headers.get('X-CSRF-Token') or request.form.get('csrf','')

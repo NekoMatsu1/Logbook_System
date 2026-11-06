@@ -71,7 +71,9 @@ def test_csrf_expiry_logout_and_credential_rotation(secured, clock):
     assert web.post('/auth/logout', base_url='https://localhost').status_code == 403
     with web.session_transaction() as session:
         csrf = session['csrf']
-    assert web.post('/auth/logout', base_url='https://localhost', data={'csrf':csrf}).status_code == 302
+    assert web.post('/auth/logout', base_url='https://localhost',
+                    headers={'Origin':'https://unexpected-provider-origin.invalid'},
+                    data={'csrf':csrf}).status_code == 302
     assert web.get('/admin/export.csv', base_url='https://localhost').status_code == 403
     assert sign_in(web).status_code == 302
     clock.advance(3601)
