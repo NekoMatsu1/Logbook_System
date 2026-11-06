@@ -91,3 +91,10 @@ def test_installer_sealing_failure_is_reported_without_private_data(monkeypatch)
     def fail(path): raise ValueError('private token must not be printed')
     monkeypatch.setattr(credentials,'protect_config',fail)
     assert launcher.main(['--protect-config','missing.json']) == 1
+
+
+def test_startup_messages_are_actionable_without_revealing_credentials():
+    assert 'already running' in launcher.startup_message(RuntimeError('Another supervisor agent is already running'))
+    assert 'different PC' in launcher.startup_message(RuntimeError('Machine credential could not be opened/protected on this PC'))
+    assert 'client.json' in launcher.startup_message(FileNotFoundError())
+    assert 'token' not in launcher.startup_message(ValueError('machine_token=private-value'))

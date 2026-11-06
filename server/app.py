@@ -538,6 +538,24 @@ def create_app(config=None):
             event('admin_student_password_reset', sid)
         return jsonify(ok=True)
 
+    @app.post('/admin/students/delete')
+    @admin
+    def delete_student():
+        # Historical logbook records are evidence and must never be removed with an account.
+        data = body()
+        sid = field(data, 'student_id', 64, allow_legacy_id=True)
+        with g.db:
+            g.db.execute('BEGIN IMMEDIATE')
+            if not g.db.execute('SELECT 1 FROM students WHERE student_id=?', (sid,)).fetchone():
+                abort(404, 'Unknown student ID')
+            if g.db.execute('SELECT 1 FROM sessions WHERE student_id=? LIMIT 1', (sid,)).fetchone():
+                abort(409, 'This account has logbook records and cannot be deleted. Deactivate it instead to preserve the records.')
+            g.db.execute('DELETE FROM student_access_tokens WHERE student_id=?', (sid,))
+            g.db.execute('DELETE FROM student_login_attempts WHERE student_id=?', (sid,))
+            g.db.execute('DELETE FROM students WHERE student_id=?', (sid,))
+            event('admin_student_deleted', sid)
+        return jsonify(ok=True)
+
     @app.post('/admin/settings')
     @admin
     def edit_settings():

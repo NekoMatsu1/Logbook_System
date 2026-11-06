@@ -79,6 +79,22 @@ def test_csv_template_and_student_page_explain_admin_flow(web):
     assert 'New student? Go to registration' not in page
 
 
+def test_admin_can_delete_unused_account_but_not_account_with_logbook_records(web, auth, csrf, ready, app):
+    unused = dict(student_id='2024035580', name='Cernal, Vhenz, Abad', active=True, create=True)
+    assert web.post('/admin/students', headers=csrf, json=unused).status_code == 200
+    assert web.post('/admin/students/delete', headers=csrf,
+                    json={'student_id':'2024035580'}).status_code == 200
+    assert web.get('/api/students/2024035580', headers=auth).status_code == 404
+
+    assert web.post('/api/sessions', headers=auth, json=ready).status_code == 201
+    response = web.post('/admin/students/delete', headers=csrf,
+                        json={'student_id':'0000000123'})
+    assert response.status_code == 409
+    with connect(app.config['DATABASE']) as db:
+        assert db.execute('SELECT 1 FROM students WHERE student_id=?', ('0000000123',)).fetchone()
+        assert db.execute("SELECT 1 FROM events WHERE kind='admin_student_deleted' AND detail=?", ('2024035580',)).fetchone()
+
+
 def test_password_attempt_throttle_and_short_lived_session_token(web, auth, csrf, clock):
     account = dict(student_id='2024035580', name='Cernal, Vhenz, Abad', active=True, create=True)
     assert web.post('/admin/students', headers=csrf, json=account).status_code == 200

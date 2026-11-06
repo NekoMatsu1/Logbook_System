@@ -12,6 +12,43 @@ def default_config():
     return base / 'config' / 'client.json'
 
 
+def focus_existing_logbook():
+    """Bring the one allowed student window forward when Logbook is already running."""
+    if sys.platform != 'win32':
+        return False
+    try:
+        import ctypes
+        user32 = ctypes.WinDLL('user32', use_last_error=True)
+        for title in ('Laboratory student login', 'Laboratory session status'):
+            handle = user32.FindWindowW(None, title)
+            if handle:
+                user32.ShowWindow(handle, 9)  # SW_RESTORE
+                user32.SetForegroundWindow(handle)
+                return True
+    except Exception:
+        pass
+    return False
+
+
+def startup_message(error):
+    """Return an actionable startup message without exposing config/token contents."""
+    detail = str(error)
+    if 'Another supervisor agent is already running' in detail:
+        return ('Logbook is already running. Its window was not found. Open it from the taskbar. '
+                'If it is not there, end Logbook.exe in Task Manager, then open Logbook again.')
+    if 'Machine credential could not be opened/protected on this PC' in detail:
+        return ('This client configuration belongs to a different PC. Ask the administrator for a new '
+                'configuration for this PC. Do not copy client.json from another computer.')
+    if isinstance(error, FileNotFoundError):
+        return 'The client configuration was not found. Put this PC\'s client.json in the config folder beside Logbook.exe.'
+    if isinstance(error, PermissionError):
+        return 'Windows cannot read or update this PC\'s client configuration. Move the full Logbook folder to Documents and try again.'
+    if isinstance(error, json.JSONDecodeError):
+        return 'This PC\'s client configuration is damaged. Ask the administrator for a new configuration file.'
+    return ('Logbook could not read this PC\'s configuration. Ask the administrator for a new configuration '
+            'for this PC. Do not reuse a configuration from another computer.')
+
+
 def self_test(output):
     """Exercise the bundled Tk, TLS certificates and Windows adapter without power/network actions."""
     import certifi
@@ -76,16 +113,16 @@ def main(argv=None):
             root = None
             from .kiosk import main as kiosk_main
             kiosk_main(['--config', config_path])
-    except Exception:
+    except Exception as error:
+        if 'Another supervisor agent is already running' in str(error) and focus_existing_logbook():
+            return 0
         # Do not expose credentials or private config contents in a startup error.
         error_root = root or tk.Tk()
         if root is None:
             error_root.withdraw()
         try:
             messagebox.showerror('Logbook could not start',
-                                 'Check that no other Logbook is running and that this PC has a valid, '
-                                 'writable configuration. Windows-protected configurations work only on '
-                                 'the PC where they were first opened. Ask your administrator for help.',
+                                 startup_message(error),
                                  parent=error_root)
         finally:
             if root is None:

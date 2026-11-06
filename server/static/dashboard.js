@@ -57,6 +57,15 @@ document.querySelectorAll('[data-password-reset]').forEach(button => button.addE
   } catch (_) {}
 }));
 
+document.querySelectorAll('[data-student-delete]').forEach(button => button.addEventListener('click', async () => {
+  const studentId = button.dataset.studentDelete;
+  if (!confirm(`Delete account ${studentId}? This cannot be undone.`)) return;
+  try {
+    await save('/admin/students/delete', {student_id: studentId});
+    setTimeout(() => location.reload(), 700);
+  } catch (_) {}
+}));
+
 const settings = document.querySelector('#settings');
 if (settings) {
   settings.elements.scope.addEventListener('change', () => {
