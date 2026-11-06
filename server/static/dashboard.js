@@ -1,4 +1,4 @@
-async function save(url, data) {
+async function save(url, data, showInline = true) {
   const message = document.querySelector('#message');
   message.classList.remove('success');
   try {
@@ -9,13 +9,26 @@ async function save(url, data) {
     });
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || 'Request failed');
-    message.textContent = 'Saved.';
-    message.classList.add('success');
+    if (showInline) {
+      message.textContent = 'Saved.';
+      message.classList.add('success');
+    }
     return result;
   } catch (error) {
-    message.textContent = error.message;
+    if (showInline) message.textContent = error.message;
     throw error;
   }
+}
+
+function showNotice(title, detail) {
+  const dialog = document.querySelector('#notice-dialog');
+  if (!dialog || typeof dialog.showModal !== 'function') {
+    alert(detail);
+    return;
+  }
+  dialog.querySelector('#notice-title').textContent = title;
+  dialog.querySelector('#notice-message').textContent = detail;
+  dialog.showModal();
 }
 
 document.querySelectorAll('[data-student]').forEach(form => form.addEventListener('submit', event => {
@@ -61,9 +74,11 @@ document.querySelectorAll('[data-student-delete]').forEach(button => button.addE
   const studentId = button.dataset.studentDelete;
   if (!confirm(`Delete account ${studentId}? This cannot be undone.`)) return;
   try {
-    await save('/admin/students/delete', {student_id: studentId});
+    await save('/admin/students/delete', {student_id: studentId}, false);
     setTimeout(() => location.reload(), 700);
-  } catch (_) {}
+  } catch (error) {
+    showNotice('Account cannot be deleted', error.message);
+  }
 }));
 
 const settings = document.querySelector('#settings');

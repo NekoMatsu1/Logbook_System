@@ -29,6 +29,17 @@ def test_overview_keeps_live_refresh_targets(web):
     assert "querySelector('[data-overview-table]')" in script
 
 
+def test_students_page_groups_secondary_actions_and_uses_a_delete_warning(web):
+    text = web.get('/admin/students').text
+    template = (ROOT / 'server/templates/dashboard.html').read_text(encoding='utf-8')
+    script = (ROOT / 'server/static/dashboard.js').read_text(encoding='utf-8')
+    assert 'class="student-actions"' in template
+    assert '<summary>More actions</summary>' in template
+    assert 'id="notice-dialog"' in text
+    assert 'showNotice' in script
+    assert "save('/admin/students/delete', {student_id: studentId}, false)" in script
+
+
 def test_password_login_design_preserves_real_authentication(app):
     secured = create_app(dict(app.config) | dict(
         ADMIN_AUTH_MODE='password', ADMIN_USERNAME='owner',
