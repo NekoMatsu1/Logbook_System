@@ -30,6 +30,16 @@ def same_origin(origin, scheme, host):
     except ValueError:
         return False
 
+
+def trusted_origin(origin, scheme, request_host, trusted_hosts):
+    """Accept the current host or an exact configured public host behind a proxy."""
+    if same_origin(origin, scheme, request_host):
+        return True
+    for host in trusted_hosts:
+        if isinstance(host, str) and host and '*' not in host and same_origin(origin, scheme, host):
+            return True
+    return False
+
 def verify_google_token(token, audience, access_token=None):
     from jose import jwt
     response = requests.get('https://www.googleapis.com/oauth2/v3/certs',timeout=(3,5),allow_redirects=False)
@@ -116,7 +126,8 @@ def install_admin_auth(app):
             if request.method == 'GET':
                 return login_page()
             origin = request.headers.get('Origin')
-            if origin and origin != 'null' and not same_origin(origin, request.scheme, request.host):
+            if origin and origin != 'null' and not trusted_origin(
+                    origin, request.scheme, request.host, app.config['TRUSTED_HOSTS']):
                 try:
                     browser_scheme = urlsplit(origin).scheme
                 except ValueError:
@@ -244,7 +255,8 @@ def install_admin_auth(app):
                 abort(403,'Cross-site administrator requests are forbidden')
             if request.method != 'GET':
                 origin = request.headers.get('Origin')
-                if origin and not same_origin(origin, request.scheme, request.host):
+                if origin and not trusted_origin(
+                        origin, request.scheme, request.host, app.config['TRUSTED_HOSTS']):
                     abort(403,'Administrator origin mismatch')
                 expected, supplied = session.get('csrf',''), request.headers.get('X-CSRF-Token') or request.form.get('csrf','')
                 if not expected or not hmac.compare_digest(expected,supplied):

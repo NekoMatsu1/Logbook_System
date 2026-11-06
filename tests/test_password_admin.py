@@ -5,7 +5,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 from deploy.enable_password_admin import enable
 from server.app import create_app
-from server.admin_auth import same_origin
+from server.admin_auth import same_origin, trusted_origin
 
 
 @pytest.fixture(scope='module')
@@ -132,6 +132,35 @@ def test_password_mode_requires_https_and_configured_credentials(app, password_h
 ])
 def test_origin_comparison_uses_scheme_hostname_and_effective_port(origin, allowed):
     assert same_origin(origin,'https','localhost') is allowed
+
+
+def test_trusted_public_origin_handles_provider_proxy_host():
+    assert trusted_origin('https://nekomatsui.pythonanywhere.com', 'https', 'internal-provider-host',
+                          ['nekomatsui.pythonanywhere.com'])
+    assert not trusted_origin('https://attacker.example', 'https', 'internal-provider-host',
+                              ['nekomatsui.pythonanywhere.com'])
+    assert not trusted_origin('https://sub.pythonanywhere.com', 'https', 'internal-provider-host',
+                              ['*.pythonanywhere.com'])
+
+
+def test_trusted_public_origin_allows_login_and_logout_behind_proxy(app, password_hash):
+    proxied = create_app(dict(app.config) | dict(
+        ADMIN_AUTH_MODE='password', ADMIN_USERNAME='owner', ADMIN_PASSWORD_HASH=password_hash,
+        SESSION_COOKIE_SECURE=True,
+        TRUSTED_HOSTS=['internal-provider-host', 'nekomatsui.pythonanywhere.com']))
+    web = proxied.test_client()
+    web.get('/auth/login', base_url='https://internal-provider-host')
+    with web.session_transaction(base_url='https://internal-provider-host') as session:
+        login_csrf = session['login_csrf']
+    result = web.post('/auth/login', base_url='https://internal-provider-host',
+        headers={'Origin':'https://nekomatsui.pythonanywhere.com'},
+        data=dict(username='owner', password='test-only passphrase!', csrf=login_csrf))
+    assert result.status_code == 302
+    with web.session_transaction(base_url='https://internal-provider-host') as session:
+        csrf = session['csrf']
+    result = web.post('/auth/logout', base_url='https://internal-provider-host',
+        headers={'Origin':'https://nekomatsui.pythonanywhere.com'}, data={'csrf':csrf})
+    assert result.status_code == 302
 
 
 @pytest.mark.parametrize('origin',['https://LOCALHOST','https://localhost:443'])
