@@ -52,6 +52,19 @@ def test_interruption_not_network_loss(web,app,auth,ready,clock):
     assert record['status'] == 'interrupted'
     assert record['logout_time'] is None and record['duration'] is None
 
+
+def test_long_offline_pc_is_interrupted_without_an_invented_end_time(web,app,auth,ready,clock):
+    web.post('/api/sessions',headers=auth,json=ready)
+    # Three heartbeat windows are required before absence is recorded.  This avoids
+    # treating a short network gap as an inaccurate student logout.
+    clock.advance(135)
+    assert web.get('/admin/overview').status_code == 200
+    with connect(app.config['DATABASE']) as db:
+        record=dict(db.execute('SELECT * FROM sessions WHERE session_id=?',('session-1',)).fetchone())
+    assert record['status']=='interrupted'
+    assert record['end_reason']=='heartbeat_timeout'
+    assert record['logout_time'] is None and record['duration'] is None
+
 def test_unacknowledged_end(web,app,auth,ready):
     web.post('/api/sessions',headers=auth,json=ready)
     web.post('/api/heartbeat',headers=auth,json=dict(run_id='run-1',active_session=None))
@@ -91,12 +104,32 @@ def test_csv_filters_and_formula_protection(web,auth,ready,csrf,clock,app):
     assert len(list(csv.DictReader(io.StringIO(web.get('/admin/export.csv?student=absent').text))))==0
     web.post('/api/sessions/session-1/end',headers=auth,json=dict(run_id='run-1',reason='inactivity'))
     assert web.get('/api/students/0000000123',headers=auth).status_code==400
+    records_page=web.get('/admin/records').text
+    assert 'status status-completed">ended' in records_page
+    assert 'Idle auto-logout' in records_page
     with connect(app.config['DATABASE']) as db:
         db.execute("INSERT INTO sessions(session_id,student_id,student_name,computer_id,run_id,login_time,status) VALUES(?,?,?,?,?,?,?)",
             ('old-session','0000000123','=1+1','LAB-PC-01','run-1',app.config['NOW']().isoformat(),'interrupted'))
     rows=list(csv.DictReader(io.StringIO(web.get('/admin/export.csv').text)))
     assert any(r['student_name']=="'=1+1" for r in rows)
     assert web.get('/admin/export.csv?date=bad').status_code==400
+
+
+def test_records_are_paginated_but_csv_export_remains_complete(web,auth,ready,app):
+    with connect(app.config['DATABASE']) as db:
+        for number in range(125):
+            stamp=f'2026-10-23T00:{number // 60:02}:{number % 60:02}+00:00'
+            db.execute("INSERT INTO sessions(session_id,student_id,student_name,computer_id,run_id,login_time,logout_time,duration,end_reason,status) "
+                       "VALUES(?,?,?,?,?,?,?,?,?,?)",
+                       (f'page-{number:03}', '0000000123', 'Dela Cruz, Juan, Santos', 'LAB-PC-01',
+                        'run-1', stamp, stamp, 1, 'inactivity', 'completed'))
+    first=web.get('/admin/records').text
+    second=web.get('/admin/records?record_page=2').text
+    assert 'Showing 1–100 of 125 records' in first
+    assert 'Showing 101–125 of 125 records' in second
+    assert 'page-124' in first and 'page-000' not in first
+    assert 'page-000' in second
+    assert len(list(csv.DictReader(io.StringIO(web.get('/admin/export.csv').text))))==125
 
 def test_all_dashboard_pages(web,ready):
     for page in ('overview','records','students','settings','events'):

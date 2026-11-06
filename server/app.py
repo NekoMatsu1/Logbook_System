@@ -16,7 +16,7 @@ from urllib.parse import urlsplit
 from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from flask import Flask, abort, g, jsonify, redirect, render_template, request, session
+from flask import Flask, abort, g, jsonify, redirect, render_template, request, session, url_for
 from .db import connect, initialize
 from .admin_auth import install_admin_auth
 from common import (DEFAULTS, valid_student_id, STUDENT_ID_ERROR, valid_student_name,
@@ -272,7 +272,8 @@ def create_app(config=None):
             if seen and current != run:
                 abort(409, 'Retired agent run; restart the client')
             g.db.execute('INSERT OR IGNORE INTO agent_runs VALUES(?,?)',(g.computer,run))
-            # Network gaps alone never establish logout. A new process run does.
+            # A new process run is an immediate interruption signal.  A prolonged
+            # absence is handled separately by the conservative reconciliation window.
             count = g.db.execute("UPDATE sessions SET status='interrupted',end_reason='agent_restart' "
                                  "WHERE computer_id=? AND status='active' AND run_id<>?", (g.computer, run)).rowcount
             if count:
@@ -286,6 +287,9 @@ def create_app(config=None):
                 if count:
                     event('interruption', 'Client has no session; end time unknown', g.computer)
             g.db.execute('UPDATE computers SET run_id=?,last_seen=? WHERE computer_id=?', (run, now(), g.computer))
+            # A healthy PC also lets the server reconcile another lab PC that has
+            # stayed unreachable beyond the conservative interruption window.
+            reconcile_stale_sessions()
         return jsonify(settings=settings(g.computer))
 
     @app.post('/api/sessions')
@@ -381,8 +385,34 @@ def create_app(config=None):
             g.db.execute('UPDATE computers SET last_seen=? WHERE computer_id=?', (now(),g.computer))
         return jsonify(settings=settings(g.computer))
 
-    def records():
-        query, params = 'SELECT * FROM sessions WHERE 1=1', []
+    def reconcile_stale_sessions():
+        """Mark a long-unreachable computer as interrupted without inventing an end time.
+
+        A missed heartbeat alone is not proof of a logout.  Three missed heartbeat
+        windows are required, and the resulting reason says only that the computer
+        went offline; the server must not claim to know whether it was power loss,
+        a cable failure, or another unexpected stop.
+        """
+        stamp = app.config['NOW']()
+        rows = g.db.execute("SELECT s.session_id,s.computer_id,c.last_seen FROM sessions s "
+                            "JOIN computers c ON c.computer_id=s.computer_id WHERE s.status='active'").fetchall()
+        changed = 0
+        for row in rows:
+            if not row['last_seen']:
+                continue
+            last_seen = datetime.fromisoformat(row['last_seen'])
+            timeout = max(120, settings(row['computer_id'])['heartbeat_timeout_seconds'] * 3)
+            if (stamp - last_seen).total_seconds() >= timeout:
+                interrupted = g.db.execute(
+                    "UPDATE sessions SET status='interrupted',end_reason='heartbeat_timeout' "
+                    "WHERE session_id=? AND status='active'", (row['session_id'],)).rowcount
+                changed += interrupted
+                if interrupted:
+                    event('interruption', 'Computer went offline; end time unknown', row['computer_id'])
+        return changed
+
+    def record_where():
+        query, params = ' WHERE 1=1', []
         for arg, column in [('student', 'student_id'), ('computer', 'computer_id')]:
             if request.args.get(arg):
                 query += f' AND {column}=?'
@@ -395,7 +425,36 @@ def create_app(config=None):
             from datetime import timedelta
             query += ' AND login_time>=? AND login_time<?'
             params.extend([day.astimezone(timezone.utc).isoformat(), (day + timedelta(days=1)).astimezone(timezone.utc).isoformat()])
-        return [dict(r) for r in g.db.execute(query + ' ORDER BY login_time DESC', params)]
+        return query, params
+
+    def decorate_records(rows):
+        labels = {
+            'inactivity': 'Idle auto-logout',
+            'simulated_inactivity': 'Idle auto-logout',
+            'manual_logout': 'Student logout',
+            'simulated_manual_logout': 'Student logout',
+            'os_signout': 'OS sign-out',
+            'agent_restart': 'Computer restarted; end time unknown',
+            'unacknowledged_end': 'Client ended without a confirmed logout; end time unknown',
+            'no_interactive_os_session': 'No interactive OS session; end time unknown',
+            'heartbeat_timeout': 'Computer went offline; end time unknown',
+        }
+        for row in rows:
+            row['display_status'] = 'ended' if row['status'] == 'completed' else row['status']
+            row['display_reason'] = labels.get(row['end_reason'], row['end_reason'] or '—')
+        return rows
+
+    def records(limit=None, offset=0):
+        where, params = record_where()
+        query = 'SELECT * FROM sessions' + where + ' ORDER BY login_time DESC'
+        if limit is not None:
+            query += ' LIMIT ? OFFSET ?'
+            params.extend((limit, offset))
+        return decorate_records([dict(row) for row in g.db.execute(query, params)])
+
+    def record_count():
+        where, params = record_where()
+        return g.db.execute('SELECT COUNT(*) FROM sessions' + where, params).fetchone()[0]
 
     @app.template_filter('manila')
     def manila(value):
@@ -412,17 +471,48 @@ def create_app(config=None):
         if page not in ('overview', 'records', 'students', 'settings', 'events'):
             abort(404)
         session.setdefault('csrf', secrets.token_hex(32))
-        pcs = [dict(r) for r in g.db.execute('SELECT * FROM computers')]
-        active = [dict(r) for r in g.db.execute("SELECT * FROM sessions WHERE status='active'")]
-        for pc in pcs:
-            online = pc['last_seen'] and (app.config['NOW']() - datetime.fromisoformat(pc['last_seen'])).total_seconds() < settings(pc['computer_id'])['heartbeat_timeout_seconds']
-            pc['status'] = ('in-use' if any(r['computer_id'] == pc['computer_id'] for r in active) else 'available') if online else 'offline'
+        with g.db:
+            reconcile_stale_sessions()
+        pcs, active, page_records, students, events, overrides = [], [], [], [], [], []
+        record_total = record_page = record_pages = 0
+        record_previous = record_next = None
+        if page in ('overview', 'settings'):
+            pcs = [dict(row) for row in g.db.execute('SELECT * FROM computers')]
+        if page == 'overview':
+            active = [dict(row) for row in g.db.execute("SELECT * FROM sessions WHERE status='active'")]
+            active_computers = {row['computer_id'] for row in active}
+            for pc in pcs:
+                online = pc['last_seen'] and (app.config['NOW']() - datetime.fromisoformat(pc['last_seen'])).total_seconds() < settings(pc['computer_id'])['heartbeat_timeout_seconds']
+                pc['status'] = ('in-use' if pc['computer_id'] in active_computers else 'available') if online else 'offline'
+        elif page == 'records':
+            try:
+                record_page = max(1, int(request.args.get('record_page', '1')))
+            except ValueError:
+                abort(400, 'Invalid record page')
+            record_total = record_count()
+            record_pages = max(1, (record_total + 99) // 100)
+            record_page = min(record_page, record_pages)
+            page_records = records(limit=100, offset=(record_page - 1) * 100)
+            query = request.args.to_dict(flat=True)
+            if record_page > 1:
+                query['record_page'] = str(record_page - 1)
+                record_previous = url_for('dashboard', page='records', **query)
+            if record_page < record_pages:
+                query['record_page'] = str(record_page + 1)
+                record_next = url_for('dashboard', page='records', **query)
+        elif page == 'students':
+            students = g.db.execute('SELECT * FROM students ORDER BY student_id').fetchall()
+        elif page == 'events':
+            events = g.db.execute('SELECT * FROM events ORDER BY id DESC LIMIT 300').fetchall()
+        elif page == 'settings':
+            overrides = [dict(row) for row in g.db.execute("SELECT * FROM settings WHERE scope<>'*'")]
         return render_template('dashboard.html', page=page, pcs=pcs, active=active,
-                               records=records() if page == 'records' else [],
-                               students=g.db.execute('SELECT * FROM students ORDER BY student_id').fetchall(),
-                               events=g.db.execute('SELECT * FROM events ORDER BY id DESC LIMIT 300').fetchall(),
+                               records=page_records, students=students, events=events,
+                               record_total=record_total, record_page=record_page,
+                               record_pages=record_pages, record_previous=record_previous,
+                               record_next=record_next,
                                defaults=settings(), keys=DEFAULTS,
-                               overrides=[dict(r) for r in g.db.execute("SELECT * FROM settings WHERE scope<>'*'")])
+                               overrides=overrides)
 
     @app.get('/admin/export.csv')
     @admin

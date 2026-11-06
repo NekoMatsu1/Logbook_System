@@ -22,6 +22,9 @@ CREATE TABLE IF NOT EXISTS events(id INTEGER PRIMARY KEY, time TEXT NOT NULL,
  computer_id TEXT, kind TEXT NOT NULL, detail TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS admin_login_attempts(address_hash TEXT NOT NULL, time REAL NOT NULL);
 CREATE INDEX IF NOT EXISTS admin_login_attempt_time ON admin_login_attempts(time);
+CREATE INDEX IF NOT EXISTS sessions_login_time ON sessions(login_time DESC);
+CREATE INDEX IF NOT EXISTS sessions_student_login_time ON sessions(student_id,login_time DESC);
+CREATE INDEX IF NOT EXISTS sessions_computer_login_time ON sessions(computer_id,login_time DESC);
 """
 
 def connect(path):
@@ -37,7 +40,7 @@ def initialize(path):
         db.executescript(SCHEMA)
         db.execute('BEGIN IMMEDIATE')
         version = db.execute('SELECT version FROM schema_version').fetchone()[0]
-        if version not in (1, 2, 3):
+        if version not in (1, 2, 3, 4):
             raise RuntimeError('Unsupported database schema')
         if version == 1:
             migration = """
@@ -63,6 +66,17 @@ CREATE TABLE student_login_attempts(computer_id TEXT NOT NULL,
  student_id TEXT NOT NULL, time REAL NOT NULL);
 CREATE INDEX student_login_attempt_time ON student_login_attempts(time);
 UPDATE schema_version SET version=3;
+"""
+            for statement in migration.split(';'):
+                if statement.strip():
+                    db.execute(statement)
+            version = 3
+        if version == 3:
+            migration = """
+CREATE INDEX IF NOT EXISTS sessions_login_time ON sessions(login_time DESC);
+CREATE INDEX IF NOT EXISTS sessions_student_login_time ON sessions(student_id,login_time DESC);
+CREATE INDEX IF NOT EXISTS sessions_computer_login_time ON sessions(computer_id,login_time DESC);
+UPDATE schema_version SET version=4;
 """
             for statement in migration.split(';'):
                 if statement.strip():

@@ -11,10 +11,12 @@ def test_v1_upgrade_preserves_students_computers_and_sessions(tmp_path):
     initialize(path)
     initialize(path)
     with connect(path) as db:
-        assert db.execute('SELECT version FROM schema_version').fetchone()[0]==3
+        assert db.execute('SELECT version FROM schema_version').fetchone()[0]==4
         assert db.execute('SELECT student_id FROM students').fetchone()[0]=='0001'
         assert db.execute('SELECT password_hash FROM students').fetchone()[0] is None
         row=db.execute('SELECT * FROM sessions').fetchone()
         assert row['student_name']=='Original Name' and row['logout_time'] is None
         assert db.execute('SELECT enabled FROM computers').fetchone()[0]==1
         assert db.execute('SELECT count(*) FROM admin_sessions').fetchone()[0]==0
+        indexes={row['name'] for row in db.execute("PRAGMA index_list('sessions')")}
+        assert {'sessions_login_time','sessions_student_login_time','sessions_computer_login_time'} <= indexes
