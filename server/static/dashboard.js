@@ -36,7 +36,7 @@ document.querySelectorAll('[data-student]').forEach(form => form.addEventListene
   save('/admin/students', {
     student_id: form.elements.student_id.value,
     name: form.elements.name.value,
-    active: form.dataset.create === 'true' || form.elements.active.checked,
+    active: form.dataset.create === 'true' || form.elements.active.value === 'true',
     create: form.dataset.create === 'true'
   }).catch(() => {});
 }));
@@ -67,6 +67,23 @@ document.querySelectorAll('[data-password-reset]').forEach(button => button.addE
   try {
     await save('/admin/students/password-reset', {student_id: button.dataset.passwordReset});
     setTimeout(() => location.reload(), 700);
+  } catch (_) {}
+}));
+
+document.querySelectorAll('[data-student-active]').forEach(button => button.addEventListener('click', async () => {
+  const form = button.closest('[data-student]');
+  const active = button.dataset.studentActive === 'true';
+  const studentId = form.elements.student_id.value;
+  const action = active ? 'activate' : 'deactivate';
+  if (!confirm(`${action[0].toUpperCase() + action.slice(1)} account ${studentId}?`)) return;
+  try {
+    await save('/admin/students', {
+      student_id: studentId,
+      name: form.elements.name.value,
+      active,
+      create: false
+    });
+    setTimeout(() => location.reload(), 500);
   } catch (_) {}
 }));
 

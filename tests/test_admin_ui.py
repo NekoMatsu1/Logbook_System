@@ -29,14 +29,17 @@ def test_overview_keeps_live_refresh_targets(web):
     assert "querySelector('[data-overview-table]')" in script
 
 
-def test_students_page_groups_secondary_actions_and_uses_a_delete_warning(web):
+def test_students_page_uses_quiet_account_actions_and_a_delete_warning(web):
     text = web.get('/admin/students').text
     template = (ROOT / 'server/templates/dashboard.html').read_text(encoding='utf-8')
     script = (ROOT / 'server/static/dashboard.js').read_text(encoding='utf-8')
     assert 'class="student-actions"' in template
-    assert '<summary>More actions</summary>' in template
+    assert '<summary>More actions</summary>' not in template
+    assert 'data-student-active=' in template
+    assert 'Deactivate' in template and 'Activate' in template
     assert 'id="notice-dialog"' in text
     assert 'showNotice' in script
+    assert "data-student-active" in script
     assert "save('/admin/students/delete', {student_id: studentId}, false)" in script
 
 
