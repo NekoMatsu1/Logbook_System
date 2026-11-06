@@ -153,7 +153,8 @@ def test_deactivation_and_duplicate_admin_registration(web,auth,ready,csrf):
     assert web.post('/admin/students',headers=csrf,json=data|{'create':True}).status_code==409
     assert web.post('/admin/students',headers=csrf,json=data).status_code==200
     assert web.get('/api/students/0000000123',headers=auth).status_code==404
-    assert web.post('/api/sessions',headers=auth,json=ready).status_code==404
+    # Deactivation revokes any password token already issued to this account.
+    assert web.post('/api/sessions',headers=auth,json=ready).status_code==401
 
 def test_no_cross_machine_session_access(web,auth,ready):
     web.post('/api/sessions',headers=auth,json=ready)

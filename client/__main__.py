@@ -286,6 +286,10 @@ class Desktop:
             self.connected = True
             self.failure_count = 0
             self.timers.configure(result['settings'])
+            if result.get('session_revoked') and self.session_id:
+                self.status.set('Your account was deactivated by the administrator. Ending this session.')
+                self.end_session('admin_deactivated')
+                return
             if not self.session_id:
                 self.status.set('Server connected. Register or enter your student ID.' if self.monitor_ok else 'Activity monitoring unavailable; sessions disabled.')
             else:

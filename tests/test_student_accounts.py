@@ -114,3 +114,23 @@ def test_password_attempt_throttle_and_short_lived_session_token(web, auth, csrf
     fresh = web.post('/api/student-auth/login', headers=auth,
                      json={'student_id':'2024035580','password':'Privatepass1'})
     assert fresh.status_code == 200
+
+
+def test_deactivation_revokes_pending_access_and_connected_session(web, auth, csrf, ready, app):
+    account = dict(student_id='2024035580', name='Cernal, Vhenz, Abad', active=True, create=True)
+    assert web.post('/admin/students', headers=csrf, json=account).status_code == 200
+    web.post('/api/heartbeat', headers=auth, json={'run_id':'deactivate-test','active_session':None})
+    setup = web.post('/api/student-auth/setup', headers=auth,
+                     json={'student_id':'2024035580','password':'Privatepass1'})
+    assert setup.status_code == 200
+    assert web.post('/api/sessions', headers=auth, json=ready | {
+        'run_id':'deactivate-test', 'student_id':'2024035580',
+        'student_auth_token':setup.json['student_auth_token']}).status_code == 201
+    assert web.post('/admin/students', headers=csrf,
+                    json=dict(student_id='2024035580', name='Cernal, Vhenz, Abad', active=False)).status_code == 200
+    response = web.post('/api/heartbeat', headers=auth,
+                        json={'run_id':'deactivate-test','active_session':'session-1'})
+    assert response.json['session_revoked'] is True
+    ended = web.post('/api/sessions/session-1/end', headers=auth,
+                     json={'run_id':'deactivate-test','reason':'admin_deactivated'})
+    assert ended.status_code == 200 and ended.json['end_reason'] == 'admin_deactivated'

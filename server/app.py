@@ -288,13 +288,20 @@ def create_app(config=None):
                     event('interruption', 'Client has no session; end time unknown', g.computer)
             stamp = now()
             g.db.execute('UPDATE computers SET run_id=?,last_seen=? WHERE computer_id=?', (run, stamp, g.computer))
+            session_revoked = False
             if active:
-                g.db.execute("UPDATE sessions SET last_heartbeat_at=? WHERE session_id=? AND computer_id=? "
-                             "AND run_id=? AND status='active'", (stamp, active, g.computer, run))
+                active_row = g.db.execute(
+                    "SELECT students.active FROM sessions JOIN students ON students.student_id=sessions.student_id "
+                    "WHERE session_id=? AND computer_id=? AND run_id=? AND status='active'",
+                    (active, g.computer, run)).fetchone()
+                if active_row and not active_row['active']:
+                    session_revoked = True
+                elif active_row:
+                    g.db.execute("UPDATE sessions SET last_heartbeat_at=? WHERE session_id=?", (stamp, active))
             # A healthy PC also lets the server reconcile another lab PC that has
             # stayed unreachable beyond the conservative interruption window.
             reconcile_stale_sessions()
-        return jsonify(settings=settings(g.computer))
+        return jsonify(settings=settings(g.computer), session_revoked=session_revoked)
 
     @app.post('/api/sessions')
     @machine
@@ -340,7 +347,7 @@ def create_app(config=None):
     def end(key):
         data = body()
         run, reason = field(data, 'run_id'), field(data, 'reason')
-        if reason not in ('inactivity', 'os_signout', 'simulated_inactivity', 'manual_logout', 'simulated_manual_logout'):
+        if reason not in ('inactivity', 'os_signout', 'simulated_inactivity', 'manual_logout', 'simulated_manual_logout', 'admin_deactivated'):
             abort(400, 'Invalid end reason')
         with g.db:
             g.db.execute('BEGIN IMMEDIATE')
@@ -438,6 +445,7 @@ def create_app(config=None):
             'simulated_inactivity': 'Idle auto-logout',
             'manual_logout': 'Student logout',
             'simulated_manual_logout': 'Student logout',
+            'admin_deactivated': 'Account deactivated by administrator',
             'os_signout': 'OS sign-out',
             'agent_restart': 'Computer restarted; end time unknown',
             'unacknowledged_end': 'Client ended without a confirmed logout; end time unknown',
@@ -616,9 +624,12 @@ def create_app(config=None):
                 except sqlite3.IntegrityError:
                     abort(409, 'Student ID already registered')
             else:
-                if not g.db.execute('UPDATE students SET name=?,active=? WHERE student_id=?', (name, int(data.get('active', True)), sid)).rowcount:
+                active = data.get('active', True)
+                if not g.db.execute('UPDATE students SET name=?,active=? WHERE student_id=?', (name, int(active), sid)).rowcount:
                     abort(404)
-            event('admin_student_change', sid)
+                if not active:
+                    g.db.execute('DELETE FROM student_access_tokens WHERE student_id=?', (sid,))
+            event('admin_student_' + ('change' if data.get('create') else ('activated' if data.get('active', True) else 'deactivated')), sid)
         return jsonify(ok=True)
 
     @app.post('/admin/students/password-reset')
