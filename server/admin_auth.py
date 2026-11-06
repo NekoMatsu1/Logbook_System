@@ -252,6 +252,14 @@ def install_admin_auth(app):
             return fn(*args,**kwargs)
         return guarded
 
+    @app.get('/auth/logout')
+    def logout_landing():
+        if mode not in ('google','password'):
+            abort(404)
+        if not request.is_secure:
+            abort(403,'Open administrator sign-in over HTTPS')
+        return redirect('/admin/overview' if authorized() else '/auth/login')
+
     @app.post('/auth/logout')
     @admin
     def logout():

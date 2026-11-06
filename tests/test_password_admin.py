@@ -62,8 +62,12 @@ def test_password_rejection_and_shared_throttle(secured, clock):
 
 def test_csrf_expiry_logout_and_credential_rotation(secured, clock):
     web = secured.test_client()
+    landing = web.get('/auth/logout', base_url='https://localhost')
+    assert landing.status_code == 302 and landing.headers['Location'].endswith('/auth/login')
     assert web.post('/auth/login', base_url='https://localhost', data={}).status_code == 403
     assert sign_in(web).status_code == 302
+    landing = web.get('/auth/logout', base_url='https://localhost')
+    assert landing.status_code == 302 and landing.headers['Location'].endswith('/admin/overview')
     assert web.post('/auth/logout', base_url='https://localhost').status_code == 403
     with web.session_transaction() as session:
         csrf = session['csrf']
