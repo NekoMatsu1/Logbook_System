@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from server.app import create_app
+from server.db import connect
 from werkzeug.security import generate_password_hash
 
 
@@ -41,6 +42,18 @@ def test_students_page_uses_quiet_account_actions_and_a_delete_warning(web):
     assert 'showNotice' in script
     assert "data-student-active" in script
     assert "save('/admin/students/delete', {student_id: studentId}, false)" in script
+
+
+def test_events_are_presented_in_plain_admin_language(web, app):
+    with connect(app.config['DATABASE']) as db:
+        db.execute("INSERT INTO events(time,computer_id,kind,detail) VALUES(?,?,?,?)",
+                   ('2026-11-07T05:58:00+00:00', 'LAB-PC-02', 'logout', 'secret-session: simulated_inactivity'))
+        db.execute("INSERT INTO events(time,kind,detail) VALUES(?,?,?)",
+                   ('2026-11-07T05:57:00+00:00', 'admin_settings_change', '*: {\"inactivity_seconds\": 10, \"auto_logout\": true}'))
+    text = web.get('/admin/events').text
+    assert 'Student session ended' in text and 'Idle auto-logout' in text
+    assert 'Settings updated' in text and 'Idle limit: 10 seconds' in text
+    assert 'secret-session' not in text and '"inactivity_seconds"' not in text
 
 
 def test_password_login_design_preserves_real_authentication(app):

@@ -457,6 +457,67 @@ def create_app(config=None):
             row['display_reason'] = labels.get(row['end_reason'], row['end_reason'] or '—')
         return rows
 
+    def decorate_events(rows):
+        titles = {
+            'admin_settings_change': 'Settings updated',
+            'admin_student_import': 'Student accounts imported',
+            'admin_student_import_rejected': 'Student import rejected',
+            'admin_student_change': 'Student account updated',
+            'admin_student_activated': 'Student account activated',
+            'admin_student_deactivated': 'Student account deactivated',
+            'admin_student_deleted': 'Student account deleted',
+            'admin_student_password_reset': 'Student password reset',
+            'student_password_created': 'Student password created',
+            'student_password_login': 'Student password accepted',
+            'student_password_rejected': 'Student password rejected',
+            'login': 'Student session started',
+            'logout': 'Student session ended',
+            'interruption': 'Session interrupted',
+            'communication_recovered': 'Connection restored',
+            'shutdown': 'Computer shutdown requested',
+            'os_operation_failure': 'Computer action failed',
+        }
+        setting_labels = {
+            'inactivity_seconds': 'Idle limit',
+            'logout_warning_seconds': 'Logout warning',
+            'shutdown_wait_seconds': 'Shutdown wait',
+            'shutdown_warning_seconds': 'Shutdown warning',
+            'identification_timeout_seconds': 'Sign-in timeout',
+            'heartbeat_timeout_seconds': 'Connection timeout',
+            'auto_logout': 'Automatic logout',
+            'auto_shutdown': 'Automatic shutdown',
+        }
+        reason_labels = {
+            'inactivity': 'Idle auto-logout', 'simulated_inactivity': 'Idle auto-logout',
+            'manual_logout': 'Student logout', 'simulated_manual_logout': 'Student logout',
+            'admin_deactivated': 'Account deactivated by administrator', 'os_signout': 'OS sign-out',
+        }
+        for row in rows:
+            row['display_kind'] = titles.get(row['kind'], row['kind'].replace('_', ' ').capitalize())
+            detail = row['detail'] or ''
+            if row['kind'] == 'admin_settings_change':
+                scope, _, raw_values = detail.partition(': ')
+                try:
+                    values = json.loads(raw_values)
+                    parts = []
+                    for key, value in values.items():
+                        label = setting_labels.get(key, key.replace('_', ' ').capitalize())
+                        shown = ('Enabled' if value else 'Disabled') if isinstance(value, bool) else f'{value} seconds'
+                        parts.append(f'{label}: {shown}')
+                    detail = f"{'Global defaults' if scope == '*' else scope}: " + ' · '.join(parts)
+                except (TypeError, ValueError):
+                    detail = 'Settings were updated.'
+            elif row['kind'] == 'login':
+                detail = f"Student ID {detail.split(':', 1)[0]} started a session."
+            elif row['kind'] == 'logout':
+                detail = reason_labels.get(detail.rsplit(':', 1)[-1].strip(), 'Student session ended.')
+            elif row['kind'].startswith('student_password_') or row['kind'].startswith('admin_student_'):
+                detail = f'Student ID {detail}.' if detail else 'No additional details.'
+            elif row['kind'] == 'communication_recovered':
+                detail = detail.replace('operations', 'operations').replace('operation', 'operation')
+            row['display_detail'] = detail
+        return rows
+
     def records(limit=None, offset=0):
         where, params = record_where()
         query = 'SELECT * FROM sessions' + where + ' ORDER BY login_time DESC'
@@ -516,7 +577,7 @@ def create_app(config=None):
         elif page == 'students':
             students = g.db.execute('SELECT * FROM students ORDER BY student_id').fetchall()
         elif page == 'events':
-            events = g.db.execute('SELECT * FROM events ORDER BY id DESC LIMIT 300').fetchall()
+            events = decorate_events([dict(row) for row in g.db.execute('SELECT * FROM events ORDER BY id DESC LIMIT 300')])
         elif page == 'settings':
             overrides = [dict(row) for row in g.db.execute("SELECT * FROM settings WHERE scope<>'*'")]
         return render_template('dashboard.html', page=page, pcs=pcs, active=active,

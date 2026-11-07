@@ -116,7 +116,9 @@ if (settings) {
       if (key === 'scope' || value === '') continue;
       values[key] = key.startsWith('auto_') ? value === 'true' : Number(value);
     }
-    save('/admin/settings', {scope: settings.elements.scope.value, values}).catch(() => {});
+    save('/admin/settings', {scope: settings.elements.scope.value, values}, false)
+      .then(() => showNotice('Settings saved', 'The selected settings are now active.'))
+      .catch(error => showNotice('Settings were not saved', error.message));
   });
 }
 

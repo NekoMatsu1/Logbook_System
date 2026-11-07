@@ -39,7 +39,7 @@
       <section class="section"><h2>Stored computer overrides</h2><ul class="overrides">{% for r in overrides %}<li><strong>{{ r.scope }}</strong>: <code>{{ r.value }}</code></li>{% else %}<li>No computer-specific overrides.</li>{% endfor %}</ul></section>
     {% elif page=='events' %}
       <p class="hint">Latest 300 operational events. Communication failures reach this log only when the client can reconnect.</p>
-      <div class="table-wrap"><table><thead><tr><th>Time</th><th>Computer</th><th>Event</th><th>Detail</th></tr></thead><tbody>{% for e in events %}<tr><td>{{ e.time|manila }}</td><td>{{ e.computer_id or 'Administrator' }}</td><td>{{ e.kind }}</td><td>{{ e.detail }}</td></tr>{% else %}<tr><td colspan="4" class="empty">No operational events recorded yet.</td></tr>{% endfor %}</tbody></table></div>
+      <div class="table-wrap events-table"><table><thead><tr><th>Time</th><th>Computer</th><th>Event</th><th>Detail</th></tr></thead><tbody>{% for e in events %}<tr><td>{{ e.time|manila }}</td><td>{{ e.computer_id or 'Administrator' }}</td><td>{{ e.display_kind }}</td><td>{{ e.display_detail }}</td></tr>{% else %}<tr><td colspan="4" class="empty">No operational events recorded yet.</td></tr>{% endfor %}</tbody></table></div>
     {% endif %}
   </main>
   <dialog id="notice-dialog" class="notice-dialog" aria-labelledby="notice-title"><div class="notice-dialog-body"><p class="notice-kicker">Administrator notice</p><h2 id="notice-title">Action needs attention</h2><p id="notice-message"></p><form method="dialog"><button class="button-ghost">Close</button></form></div></dialog>
