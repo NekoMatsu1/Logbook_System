@@ -147,7 +147,7 @@ def test_tk_first_password_login_and_simulated_logout(app,clock,monkeypatch,gate
         clock.advance(60)
         pump_until(lambda:adapter.actions==['logout','shutdown'])
         with app.test_client() as web:
-            assert ('simulated_manual_logout' if manual else 'simulated_inactivity') in web.get('/admin/records').text
+            assert ('Student logout' if manual else 'Idle auto-logout') in web.get('/admin/records').text
     finally:
         agent.pool.shutdown(wait=True,cancel_futures=True)
         for callback in root.tk.call('after','info'):
