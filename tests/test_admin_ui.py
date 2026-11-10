@@ -66,8 +66,8 @@ def test_admin_pages_explain_csv_import_and_use_human_durations(web, app):
                     5400, 'manual_logout', 'completed'))
     students = web.get('/admin/students').text
     records = web.get('/admin/records').text
-    assert '1</span> Download CSV template' in students
-    assert '3. Upload completed CSV' in students
+    assert '>1</span><div><h3>Download the CSV template' in students
+    assert '>3</span><div><h3>Upload the completed file' in students
     assert 'Time used' in records and '1 hr 30 min' in records
 
 
