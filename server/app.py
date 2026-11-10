@@ -507,8 +507,24 @@ def create_app(config=None):
             'manual_logout': 'Student logout', 'simulated_manual_logout': 'Student logout',
             'admin_deactivated': 'Account deactivated by administrator', 'os_signout': 'OS sign-out',
         }
+
+        def timer_value(value):
+            total = max(0, int(value))
+            hours, remainder = divmod(total, 3600)
+            minutes, seconds = divmod(remainder, 60)
+            parts = []
+            if hours:
+                parts.append(f'{hours} hr')
+            if minutes:
+                parts.append(f'{minutes} min')
+            if seconds or not parts:
+                parts.append(f'{seconds} sec')
+            return ' '.join(parts)
+
         for row in rows:
             row['display_kind'] = titles.get(row['kind'], row['kind'].replace('_', ' ').capitalize())
+            row['display_detail_title'] = None
+            row['display_detail_lines'] = []
             detail = row['detail'] or ''
             if row['kind'] == 'admin_settings_change':
                 scope, _, raw_values = detail.partition(': ')
@@ -517,9 +533,11 @@ def create_app(config=None):
                     parts = []
                     for key, value in values.items():
                         label = setting_labels.get(key, key.replace('_', ' ').capitalize())
-                        shown = ('Enabled' if value else 'Disabled') if isinstance(value, bool) else f'{value} seconds'
+                        shown = ('Enabled' if value else 'Disabled') if isinstance(value, bool) else timer_value(value)
                         parts.append(f'{label}: {shown}')
-                    detail = f"{'Global defaults' if scope == '*' else scope}: " + ' · '.join(parts)
+                    row['display_detail_title'] = ('Global defaults' if scope == '*' else scope) + ' updated'
+                    row['display_detail_lines'] = parts
+                    detail = 'Settings updated.'
                 except (TypeError, ValueError):
                     detail = 'Settings were updated.'
             elif row['kind'] == 'login':

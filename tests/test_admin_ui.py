@@ -52,7 +52,7 @@ def test_events_are_presented_in_plain_admin_language(web, app):
                    ('2026-11-07T05:57:00+00:00', 'admin_settings_change', '*: {\"inactivity_seconds\": 10, \"auto_logout\": true}'))
     text = web.get('/admin/events').text
     assert 'Student session ended' in text and 'Idle auto-logout' in text
-    assert 'Settings updated' in text and 'Idle limit: 10 seconds' in text
+    assert 'Settings updated' in text and 'Idle limit: 10 sec' in text
     assert 'secret-session' not in text and '"inactivity_seconds"' not in text
 
 
