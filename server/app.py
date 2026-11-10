@@ -455,6 +455,21 @@ def create_app(config=None):
         for row in rows:
             row['display_status'] = 'ended' if row['status'] == 'completed' else row['status']
             row['display_reason'] = labels.get(row['end_reason'], row['end_reason'] or '—')
+            seconds = row['duration']
+            if seconds is None:
+                row['display_duration'] = 'Unknown'
+                continue
+            # Keep precise seconds in the database, but show staff an easy-to-read
+            # elapsed time instead of the storage value.
+            total = max(0, int(round(seconds)))
+            hours, remainder = divmod(total, 3600)
+            minutes = remainder // 60
+            if hours:
+                row['display_duration'] = f'{hours} hr' + (f' {minutes} min' if minutes else '')
+            elif minutes:
+                row['display_duration'] = f'{minutes} min'
+            else:
+                row['display_duration'] = '< 1 min'
         return rows
 
     def decorate_events(rows):
@@ -511,10 +526,40 @@ def create_app(config=None):
                 detail = f"Student ID {detail.split(':', 1)[0]} started a session."
             elif row['kind'] == 'logout':
                 detail = reason_labels.get(detail.rsplit(':', 1)[-1].strip(), 'Student session ended.')
-            elif row['kind'].startswith('student_password_') or row['kind'].startswith('admin_student_'):
-                detail = f'Student ID {detail}.' if detail else 'No additional details.'
+            elif row['kind'] == 'admin_student_import':
+                detail = (detail.rstrip('.') + '.') if detail else 'Student accounts were imported.'
+            elif row['kind'] == 'admin_student_import_rejected':
+                detail = f'Import was rejected: {detail}' if detail else 'Import was rejected. Correct the CSV and try again.'
+            elif row['kind'] == 'student_password_created':
+                detail = 'The student created a password for this account.'
+            elif row['kind'] == 'student_password_login':
+                detail = 'The student verified their password and can start a session.'
+            elif row['kind'] == 'student_password_rejected':
+                detail = 'A password attempt was rejected.'
+            elif row['kind'] == 'admin_student_password_reset':
+                detail = 'Password reset. The student must create a new password at the next sign-in.'
+            elif row['kind'] == 'admin_student_activated':
+                detail = 'Account activated. The student can sign in.'
+            elif row['kind'] == 'admin_student_deactivated':
+                detail = 'Account deactivated. Existing records were kept.'
+            elif row['kind'] == 'admin_student_deleted':
+                detail = 'Account deleted because it had no logbook records.'
+            elif row['kind'] == 'admin_student_change':
+                detail = 'Official account details were updated.'
             elif row['kind'] == 'communication_recovered':
-                detail = detail.replace('operations', 'operations').replace('operation', 'operation')
+                match = re.match(r'^(\d+) failed operations? since last report; no local session log retained$', detail)
+                if match:
+                    count = match.group(1)
+                    verb = 'request was' if count == '1' else 'requests were'
+                    detail = f'Connection restored. {count} {verb} not sent while the computer was offline. No session record was lost.'
+                else:
+                    detail = 'Connection to the server was restored.'
+            elif row['kind'] == 'shutdown':
+                detail = 'A simulated shutdown was requested.' if detail == 'simulation' else 'A computer shutdown was requested.'
+            elif row['kind'] == 'interruption':
+                detail = detail.rstrip('.') + '.' if detail else 'The session was interrupted; its end time is unknown.'
+            elif row['kind'] == 'os_operation_failure':
+                detail = 'The computer could not complete a requested system action.'
             row['display_detail'] = detail
         return rows
 

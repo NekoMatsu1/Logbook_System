@@ -56,6 +56,21 @@ def test_events_are_presented_in_plain_admin_language(web, app):
     assert 'secret-session' not in text and '"inactivity_seconds"' not in text
 
 
+def test_admin_pages_explain_csv_import_and_use_human_durations(web, app):
+    with connect(app.config['DATABASE']) as db:
+        db.execute('INSERT INTO students(student_id,name) VALUES(?,?)',
+                   ('2024035580', 'Dela Cruz, Juan, Santos'))
+        db.execute("INSERT INTO sessions(session_id,student_id,student_name,computer_id,run_id,login_time,logout_time,last_heartbeat_at,duration,end_reason,status) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+                   ('session-1', '2024035580', 'Dela Cruz, Juan, Santos', 'LAB-PC-01', 'run-1',
+                    '2026-11-07T05:00:00+00:00', '2026-11-07T06:30:00+00:00', '2026-11-07T06:30:00+00:00',
+                    5400, 'manual_logout', 'completed'))
+    students = web.get('/admin/students').text
+    records = web.get('/admin/records').text
+    assert '1</span> Download CSV template' in students
+    assert '3. Upload completed CSV' in students
+    assert 'Time used' in records and '1 hr 30 min' in records
+
+
 def test_password_login_design_preserves_real_authentication(app):
     secured = create_app(dict(app.config) | dict(
         ADMIN_AUTH_MODE='password', ADMIN_USERNAME='owner',

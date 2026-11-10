@@ -139,7 +139,7 @@ def test_records_use_short_session_reference_and_minute_precision(web,auth,ready
     web.post('/api/heartbeat',headers=auth,json={'run_id':'run-1','active_session':'session-1'})
     page=web.get('/admin/records').text
     assert '#session-' in page
-    assert '>Duration</th>' in page and '>Seconds</th>' not in page
+    assert '>Time used</th>' in page and '>Seconds</th>' not in page
     with connect(web.application.config['DATABASE']) as db:
         row=db.execute('SELECT login_time,last_heartbeat_at FROM sessions WHERE session_id=?',('session-1',)).fetchone()
     assert row['last_heartbeat_at'] != row['login_time']
